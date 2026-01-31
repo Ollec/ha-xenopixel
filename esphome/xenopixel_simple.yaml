@@ -19,6 +19,9 @@ esphome:
   name: ${device_name}
   friendly_name: ${friendly_name}
 
+external_components:
+  - source: components
+
 esp32:
   board: esp32dev
   framework:
@@ -61,9 +64,6 @@ globals:
   - id: saber_battery
     type: int
     initial_value: '0'
-  - id: saber_blade_on
-    type: bool
-    initial_value: 'false'
   - id: keepalive_interval_sec
     type: int
     initial_value: '30'
@@ -187,9 +187,9 @@ ble_client:
         - globals.set:
             id: saber_authorized
             value: 'false'
-        - globals.set:
-            id: saber_blade_on
-            value: 'false'
+        - light.turn_off: saber_light
+        - lambda: |-
+            ((xenopixel_light::XenopixelLight *)id(saber_light).get_output())->reset_handle();
 
 # BLE notification subscriptions - CRITICAL for saber to accept commands
 # The saber requires notifications to be enabled (CCCD write) before
@@ -246,8 +246,9 @@ text_sensor:
             auto power_on_pos = params.find("\"PowerOn\":");
             if (power_on_pos != std::string::npos) {
               bool blade_on = params.find("true", power_on_pos) < params.find(",", power_on_pos + 10);
-              id(saber_blade_on) = blade_on;
-              id(saber_blade).publish_state(blade_on);
+              auto call = id(saber_light).make_call();
+              call.set_state(blade_on);
+              call.perform();
               ESP_LOGI("xenopixel", "State sync: blade %s", blade_on ? "ON" : "OFF");
             }
 
@@ -264,8 +265,8 @@ text_sensor:
             auto brightness_pos = params.find("\"Brightness\":");
             if (brightness_pos != std::string::npos) {
               int val = atoi(params.c_str() + brightness_pos + 13);
-              auto call = id(saber_brightness).make_call();
-              call.set_value(val);
+              auto call = id(saber_light).make_call();
+              call.set_brightness((float)val / 100.0f);
               call.perform();
               ESP_LOGI("xenopixel", "State sync: brightness %d", val);
             }
@@ -275,15 +276,9 @@ text_sensor:
             if (color_pos != std::string::npos) {
               int r = 0, g = 0, b = 0;
               sscanf(params.c_str() + color_pos + 19, "%d,%d,%d", &r, &g, &b);
-              auto call_r = id(saber_red).make_call();
-              call_r.set_value(r);
-              call_r.perform();
-              auto call_g = id(saber_green).make_call();
-              call_g.set_value(g);
-              call_g.perform();
-              auto call_b = id(saber_blue).make_call();
-              call_b.set_value(b);
-              call_b.perform();
+              auto call = id(saber_light).make_call();
+              call.set_rgb((float)r / 255.0f, (float)g / 255.0f, (float)b / 255.0f);
+              call.perform();
               ESP_LOGI("xenopixel", "State sync: color [%d,%d,%d]", r, g, b);
             }
 
@@ -376,125 +371,8 @@ sensor:
     accuracy_decimals: 0
     lambda: 'return id(saber_battery);'
 
-# Power control switch (notification-driven state, not optimistic)
-switch:
-  - platform: template
-    name: "${friendly_name} Blade"
-    id: saber_blade
-    icon: "mdi:sword"
-    lambda: 'return id(saber_blade_on);'
-    restore_mode: ALWAYS_OFF
-    turn_on_action:
-      - if:
-          condition:
-            lambda: 'return id(saber_authorized);'
-          then:
-            - logger.log: "Turning blade ON"
-            - ble_client.ble_write:
-                id: saber_ble
-                service_uuid: "00003ab0-0000-1000-8000-00805f9b34fb"
-                characteristic_uuid: "00003ab1-0000-1000-8000-00805f9b34fb"
-                value: [0x5B, 0x32, 0x2C, 0x7B, 0x22, 0x50, 0x6F, 0x77, 0x65, 0x72, 0x4F, 0x6E, 0x22, 0x3A, 0x74, 0x72, 0x75, 0x65, 0x7D, 0x5D]
-                # [2,{"PowerOn":true}]
-            - logger.log: "Blade ON command sent"
-          else:
-            - logger.log:
-                level: WARN
-                format: "Cannot turn on blade - saber not authorized yet!"
-    turn_off_action:
-      - if:
-          condition:
-            lambda: 'return id(saber_authorized);'
-          then:
-            - logger.log: "Turning blade OFF"
-            - ble_client.ble_write:
-                id: saber_ble
-                service_uuid: "00003ab0-0000-1000-8000-00805f9b34fb"
-                characteristic_uuid: "00003ab1-0000-1000-8000-00805f9b34fb"
-                value: [0x5B, 0x32, 0x2C, 0x7B, 0x22, 0x50, 0x6F, 0x77, 0x65, 0x72, 0x4F, 0x6E, 0x22, 0x3A, 0x66, 0x61, 0x6C, 0x73, 0x65, 0x7D, 0x5D]
-                # [2,{"PowerOn":false}]
-            - logger.log: "Blade OFF command sent"
-          else:
-            - logger.log:
-                level: WARN
-                format: "Cannot turn off blade - saber not authorized yet!"
-
 # Number inputs
 number:
-  # Color inputs (0-255)
-  - platform: template
-    name: "${friendly_name} Red"
-    id: saber_red
-    icon: "mdi:palette"
-    min_value: 0
-    max_value: 255
-    step: 1
-    initial_value: 255
-    optimistic: true
-    set_action:
-      - if:
-          condition:
-            lambda: 'return id(saber_authorized) && !id(syncing_from_notification);'
-          then:
-            - script.execute: send_color
-
-  - platform: template
-    name: "${friendly_name} Green"
-    id: saber_green
-    icon: "mdi:palette"
-    min_value: 0
-    max_value: 255
-    step: 1
-    initial_value: 0
-    optimistic: true
-    set_action:
-      - if:
-          condition:
-            lambda: 'return id(saber_authorized) && !id(syncing_from_notification);'
-          then:
-            - script.execute: send_color
-
-  - platform: template
-    name: "${friendly_name} Blue"
-    id: saber_blue
-    icon: "mdi:palette"
-    min_value: 0
-    max_value: 255
-    step: 1
-    initial_value: 0
-    optimistic: true
-    set_action:
-      - if:
-          condition:
-            lambda: 'return id(saber_authorized) && !id(syncing_from_notification);'
-          then:
-            - script.execute: send_color
-
-  - platform: template
-    name: "${friendly_name} Brightness"
-    id: saber_brightness
-    icon: "mdi:brightness-6"
-    min_value: 0
-    max_value: 100
-    step: 1
-    initial_value: 100
-    optimistic: true
-    set_action:
-      - if:
-          condition:
-            lambda: 'return id(saber_authorized) && !id(syncing_from_notification);'
-          then:
-            - ble_client.ble_write:
-                id: saber_ble
-                service_uuid: "00003ab0-0000-1000-8000-00805f9b34fb"
-                characteristic_uuid: "00003ab1-0000-1000-8000-00805f9b34fb"
-                value: !lambda |-
-                  int brightness = (int)x;
-                  char cmd[48];
-                  snprintf(cmd, sizeof(cmd), "[2,{\"Brightness\":%d}]", brightness);
-                  ESP_LOGI("xenopixel", "Sending brightness: %s", cmd);
-                  return std::vector<uint8_t>(cmd, cmd + strlen(cmd));
-
   # Volume control (0-100)
   - platform: template
     name: "${friendly_name} Volume"
@@ -610,7 +488,7 @@ interval:
           last_keepalive_ms = now;
 
           // Re-send current brightness — idempotent, no visible change
-          int brightness = (int)id(saber_brightness).state;
+          int brightness = (int)(id(saber_light).current_values.get_brightness() * 100.0f);
           char cmd[48];
           snprintf(cmd, sizeof(cmd), "[2,{\"Brightness\":%d}]", brightness);
           ESP_LOGD("xenopixel", "Keepalive: %s", cmd);
@@ -634,84 +512,18 @@ interval:
             }
           }
 
-# Scripts for sending commands
-script:
-  - id: send_color
-    mode: restart
-    then:
-      - delay: 100ms  # Debounce rapid changes
-      - ble_client.ble_write:
-          id: saber_ble
-          service_uuid: "00003ab0-0000-1000-8000-00805f9b34fb"
-          characteristic_uuid: "00003ab1-0000-1000-8000-00805f9b34fb"
-          value: !lambda |-
-            int r = (int)id(saber_red).state;
-            int g = (int)id(saber_green).state;
-            int b = (int)id(saber_blue).state;
-            char cmd[64];
-            snprintf(cmd, sizeof(cmd), "[2,{\"BackgroundColor\":[%d,%d,%d]}]", r, g, b);
-            ESP_LOGI("xenopixel", "Sending color: %s", cmd);
-            return std::vector<uint8_t>(cmd, cmd + strlen(cmd));
+# Light entity — provides color wheel, brightness slider, and on/off toggle in HA
+light:
+  - platform: xenopixel_light
+    name: "${friendly_name} Blade"
+    id: saber_light
+    icon: "mdi:sword"
+    default_transition_length: 0s
+    ble_client_id: saber_ble
+    authorized_id: saber_authorized
+    syncing_id: syncing_from_notification
 
-
-# Buttons for preset colors
 button:
-  - platform: template
-    name: "${friendly_name} Red Preset"
-    icon: "mdi:palette"
-    on_press:
-      - number.set:
-          id: saber_red
-          value: 255
-      - number.set:
-          id: saber_green
-          value: 0
-      - number.set:
-          id: saber_blue
-          value: 0
-
-  - platform: template
-    name: "${friendly_name} Green Preset"
-    icon: "mdi:palette"
-    on_press:
-      - number.set:
-          id: saber_red
-          value: 0
-      - number.set:
-          id: saber_green
-          value: 255
-      - number.set:
-          id: saber_blue
-          value: 0
-
-  - platform: template
-    name: "${friendly_name} Blue Preset"
-    icon: "mdi:palette"
-    on_press:
-      - number.set:
-          id: saber_red
-          value: 0
-      - number.set:
-          id: saber_green
-          value: 0
-      - number.set:
-          id: saber_blue
-          value: 255
-
-  - platform: template
-    name: "${friendly_name} White Preset"
-    icon: "mdi:palette"
-    on_press:
-      - number.set:
-          id: saber_red
-          value: 255
-      - number.set:
-          id: saber_green
-          value: 255
-      - number.set:
-          id: saber_blue
-          value: 255
-
   - platform: template
     name: "${friendly_name} Reconnect BLE"
     icon: "mdi:bluetooth-connect"
