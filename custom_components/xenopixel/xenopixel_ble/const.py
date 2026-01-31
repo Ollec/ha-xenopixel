@@ -53,6 +53,8 @@ PARAM_SOFTWARE_VERSION: Final = "SoftwareVersion"
 PARAM_CURRENT_SOUND_PACKAGE: Final = "CurrentSoundPackageNo"
 PARAM_TOTAL_SOUND_PACKAGES: Final = "TotalSoundPackage"
 PARAM_CURRENT_LIGHT_EFFECT: Final = "CurrentLightEffect"
+LIGHT_EFFECT_MIN: Final = 1
+LIGHT_EFFECT_MAX: Final = 9
 PARAM_VOLUME: Final = "Volume"
 
 # Timeouts

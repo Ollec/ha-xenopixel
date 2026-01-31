@@ -67,13 +67,49 @@ def notification_handler(sender: int, data: bytearray) -> None:
         print(f"📨 Notification (hex): {data.hex()}")
 
 
+async def _dump_gatt_services(client: BleakClient) -> None:
+    """Print all GATT services and their characteristics."""
+    print("\n📋 GATT Services:")
+    for service in client.services:
+        print(f"\n  Service: {service.uuid}")
+        for char in service.characteristics:
+            props = ", ".join(char.properties)
+            print(f"    Char: {char.uuid} [{props}]")
+            for desc in char.descriptors:
+                print(f"      Desc: {desc.uuid}")
+                if "2902" in str(desc.uuid):
+                    try:
+                        value = await client.read_gatt_descriptor(desc.handle)
+                        print(f"        CCCD value: {value.hex()}")
+                    except Exception as e:
+                        print(f"        CCCD read error: {e}")
+
+
+async def _manually_enable_notifications(client: BleakClient) -> None:
+    """Try to manually write to CCCD to enable notifications."""
+    print("\n🔧 Manually enabling notifications...")
+    for service in client.services:
+        for char in service.characteristics:
+            if "notify" not in char.properties:
+                continue
+            for desc in char.descriptors:
+                if "2902" not in str(desc.uuid):
+                    continue
+                print(f"  Writing 0x0100 to CCCD for {char.uuid}...")
+                try:
+                    await client.write_gatt_descriptor(
+                        desc.handle, bytearray([0x01, 0x00])
+                    )
+                    print("    ✅ Written")
+                except Exception as e:
+                    print(f"    ❌ Error: {e}")
+
+
 async def debug_gatt() -> None:
     """Debug GATT structure and notification setup."""
     print(f"🔌 Connecting to {KNOWN_MAC}...")
 
-    # Try connecting with explicit pairing
     async with BleakClient(KNOWN_MAC) as client:
-        # Try to pair through bleak
         print("🔐 Attempting to pair through bleak...")
         try:
             paired = await client.pair()
@@ -83,41 +119,9 @@ async def debug_gatt() -> None:
         print(f"✅ Connected: {client.is_connected}")
         print(f"📊 MTU: {client.mtu_size}")
 
-        print("\n📋 GATT Services:")
-        for service in client.services:
-            print(f"\n  Service: {service.uuid}")
-            for char in service.characteristics:
-                props = ", ".join(char.properties)
-                print(f"    Char: {char.uuid} [{props}]")
-                for desc in char.descriptors:
-                    print(f"      Desc: {desc.uuid}")
-                    # Read CCCD if present
-                    if "2902" in str(desc.uuid):
-                        try:
-                            value = await client.read_gatt_descriptor(desc.handle)
-                            print(f"        CCCD value: {value.hex()}")
-                        except Exception as e:
-                            print(f"        CCCD read error: {e}")
+        await _dump_gatt_services(client)
+        await _manually_enable_notifications(client)
 
-        # Try to manually write to CCCD to enable notifications
-        print("\n🔧 Manually enabling notifications...")
-        cccd_uuid = "00002902-0000-1000-8000-00805f9b34fb"
-
-        for service in client.services:
-            for char in service.characteristics:
-                if "notify" in char.properties:
-                    for desc in char.descriptors:
-                        if "2902" in str(desc.uuid):
-                            print(f"  Writing 0x0100 to CCCD for {char.uuid}...")
-                            try:
-                                await client.write_gatt_descriptor(
-                                    desc.handle, bytearray([0x01, 0x00])
-                                )
-                                print("    ✅ Written")
-                            except Exception as e:
-                                print(f"    ❌ Error: {e}")
-
-        # Now try to enable notifications via bleak
         print("\n📡 Starting notifications via bleak...")
         await client.start_notify(CHAR_CONTROL_UUID, notification_handler)
         await client.start_notify(CHAR_CONTROL_ALT_UUID, notification_handler)
@@ -314,65 +318,71 @@ async def send_blind_command() -> None:
         print("🔌 Disconnecting...")
 
 
+async def _cmd_power() -> None:
+    """Handle power on/off command."""
+    if len(sys.argv) < 3:
+        print("Usage: power on|off")
+        return
+    state = "true" if sys.argv[2].lower() == "on" else "false"
+    await send_command(f'[2,{{"PowerOn":{state}}}]', use_alt=True)
+
+
+async def _cmd_color() -> None:
+    """Handle color command."""
+    if len(sys.argv) < 5:
+        print("Usage: color R G B (0-255)")
+        return
+    r, g, b = int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4])
+    await send_command(f'[2,{{"BackgroundColor":[{r},{g},{b}]}}]', use_alt=True)
+
+
+async def _cmd_brightness() -> None:
+    """Handle brightness command."""
+    if len(sys.argv) < 3:
+        print("Usage: brightness 0-100")
+        return
+    level = int(sys.argv[2])
+    await send_command(f'[2,{{"Brightness":{level}}}]', use_alt=True)
+
+
+async def _cmd_raw() -> None:
+    """Handle raw JSON command."""
+    if len(sys.argv) < 3:
+        print("Usage: raw '<json>'")
+        return
+    await send_command(sys.argv[2])
+
+
+async def _cmd_alt() -> None:
+    """Handle alt characteristic command."""
+    if len(sys.argv) < 3:
+        print("Usage: alt '<json>'")
+        return
+    await send_command(sys.argv[2], use_alt=True)
+
+
 async def main() -> None:
     """Main entry point."""
     if len(sys.argv) < 2:
         print(__doc__)
         return
 
+    commands = {
+        "scan": scan_devices,
+        "debug": debug_gatt,
+        "read": connect_and_read,
+        "power": _cmd_power,
+        "color": _cmd_color,
+        "brightness": _cmd_brightness,
+        "raw": _cmd_raw,
+        "alt": _cmd_alt,
+        "blind": send_blind_command,
+    }
+
     cmd = sys.argv[1].lower()
-
-    if cmd == "scan":
-        await scan_devices()
-
-    elif cmd == "debug":
-        await debug_gatt()
-
-    elif cmd == "read":
-        await connect_and_read()
-
-    elif cmd == "power":
-        if len(sys.argv) < 3:
-            print("Usage: power on|off")
-            return
-        # Confirmed format: [2,{"PowerOn":true}] via HCI snoop capture
-        # Commands use type 2, sent to 0x3AB1 with Write Command (no response)
-        state = "true" if sys.argv[2].lower() == "on" else "false"
-        await send_command(f'[2,{{"PowerOn":{state}}}]', use_alt=True)
-
-    elif cmd == "color":
-        if len(sys.argv) < 5:
-            print("Usage: color R G B (0-255)")
-            return
-        r, g, b = int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4])
-        # Confirmed format: [2,{"BackgroundColor":[R,G,B]}] via HCI snoop capture
-        await send_command(f'[2,{{"BackgroundColor":[{r},{g},{b}]}}]', use_alt=True)
-
-    elif cmd == "brightness":
-        if len(sys.argv) < 3:
-            print("Usage: brightness 0-100")
-            return
-        level = int(sys.argv[2])
-        # Commands use type 2
-        await send_command(f'[2,{{"Brightness":{level}}}]', use_alt=True)
-
-    elif cmd == "raw":
-        if len(sys.argv) < 3:
-            print("Usage: raw '<json>'")
-            return
-        await send_command(sys.argv[2])
-
-    elif cmd == "alt":
-        # Send to secondary characteristic (0x3AB1)
-        if len(sys.argv) < 3:
-            print("Usage: alt '<json>'")
-            return
-        await send_command(sys.argv[2], use_alt=True)
-
-    elif cmd == "blind":
-        # Skip notification setup entirely - just connect and write
-        await send_blind_command()
-
+    handler = commands.get(cmd)
+    if handler:
+        await handler()
     else:
         print(f"Unknown command: {cmd}")
         print(__doc__)

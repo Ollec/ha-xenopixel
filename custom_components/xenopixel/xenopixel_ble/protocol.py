@@ -9,6 +9,8 @@ from typing import Any
 from .const import (
     AUTHORIZE_VALUE,
     HANDSHAKE_VALUE,
+    LIGHT_EFFECT_MAX,
+    LIGHT_EFFECT_MIN,
     MSG_TYPE_COMMAND,
     PARAM_AUTHORIZE,
     PARAM_BACKGROUND_COLOR,
@@ -191,13 +193,15 @@ class XenopixelProtocol:
         """Encode a light effect selection command.
 
         Args:
-            effect: Light effect number.
+            effect: Light effect number (1-9).
 
         Returns:
             bytes: The encoded JSON command as UTF-8 bytes.
 
         Protocol: [2,{"CurrentLightEffect":value}] sent to 0x3AB1
         """
+        effect = max(LIGHT_EFFECT_MIN, min(LIGHT_EFFECT_MAX, effect))
+
         message = [MSG_TYPE_COMMAND, {PARAM_CURRENT_LIGHT_EFFECT: effect}]
         return json.dumps(message, separators=(",", ":")).encode("utf-8")
 
@@ -226,6 +230,27 @@ class XenopixelProtocol:
         except (UnicodeDecodeError, json.JSONDecodeError):
             return None
 
+    # Mapping from BLE parameter names to XenopixelState field names
+    _PARAM_TO_FIELD: dict[str, str] = {
+        PARAM_POWER_ON: "is_on",
+        PARAM_POWER: "power_level",
+        PARAM_BRIGHTNESS: "brightness",
+        PARAM_VOLUME: "volume",
+        PARAM_CURRENT_SOUND_PACKAGE: "sound_font",
+        PARAM_TOTAL_SOUND_PACKAGES: "total_sound_fonts",
+        PARAM_CURRENT_LIGHT_EFFECT: "light_effect",
+        PARAM_HARDWARE_VERSION: "hardware_version",
+        PARAM_SOFTWARE_VERSION: "software_version",
+    }
+
+    @staticmethod
+    def _apply_color(state: XenopixelState, color: Any) -> None:
+        """Apply BackgroundColor [R, G, B] array to state."""
+        if isinstance(color, list) and len(color) >= 3:
+            state.red = color[0]
+            state.green = color[1]
+            state.blue = color[2]
+
     @staticmethod
     def parse_state(response: dict[str, Any]) -> XenopixelState | None:
         """Parse a response into a XenopixelState object.
@@ -248,41 +273,13 @@ class XenopixelProtocol:
         params = response.get("params", {})
         state = XenopixelState()
 
-        # PowerOn is the blade on/off state (boolean)
-        if PARAM_POWER_ON in params:
-            state.is_on = params[PARAM_POWER_ON]
+        # Apply simple 1:1 parameter-to-field mappings
+        for param_name, field_name in XenopixelProtocol._PARAM_TO_FIELD.items():
+            if param_name in params:
+                setattr(state, field_name, params[param_name])
 
-        # Power is battery level (percentage)
-        if PARAM_POWER in params:
-            state.power_level = params[PARAM_POWER]
-
-        if PARAM_BRIGHTNESS in params:
-            state.brightness = params[PARAM_BRIGHTNESS]
-
-        # BackgroundColor is [R, G, B] array
+        # BackgroundColor needs special handling ([R, G, B] array)
         if PARAM_BACKGROUND_COLOR in params:
-            color = params[PARAM_BACKGROUND_COLOR]
-            if isinstance(color, list) and len(color) >= 3:
-                state.red = color[0]
-                state.green = color[1]
-                state.blue = color[2]
-
-        if PARAM_VOLUME in params:
-            state.volume = params[PARAM_VOLUME]
-
-        if PARAM_CURRENT_SOUND_PACKAGE in params:
-            state.sound_font = params[PARAM_CURRENT_SOUND_PACKAGE]
-
-        if PARAM_TOTAL_SOUND_PACKAGES in params:
-            state.total_sound_fonts = params[PARAM_TOTAL_SOUND_PACKAGES]
-
-        if PARAM_CURRENT_LIGHT_EFFECT in params:
-            state.light_effect = params[PARAM_CURRENT_LIGHT_EFFECT]
-
-        if PARAM_HARDWARE_VERSION in params:
-            state.hardware_version = params[PARAM_HARDWARE_VERSION]
-
-        if PARAM_SOFTWARE_VERSION in params:
-            state.software_version = params[PARAM_SOFTWARE_VERSION]
+            XenopixelProtocol._apply_color(state, params[PARAM_BACKGROUND_COLOR])
 
         return state

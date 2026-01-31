@@ -14,18 +14,23 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import shlex
 import subprocess
 
 from bleak import BleakClient
 
 KNOWN_MAC = "B0:CB:D8:DB:E1:AE"
 
+# UUIDs
+CHAR_CONTROL_UUID = "0000dae1-0000-1000-8000-00805f9b34fb"
+CHAR_CONTROL_ALT_UUID = "00003ab1-0000-1000-8000-00805f9b34fb"
+
 
 def run_cmd(cmd: str) -> str:
     """Run shell command and return output."""
     try:
         result = subprocess.run(
-            cmd, shell=True, capture_output=True, text=True, timeout=10
+            shlex.split(cmd), capture_output=True, text=True, timeout=10
         )
         return result.stdout.strip() or result.stderr.strip()
     except Exception as e:
@@ -39,124 +44,122 @@ def print_section(title: str) -> None:
     print(f"{'=' * 60}")
 
 
-async def diagnose() -> None:
-    """Run diagnostics."""
-    print("BLE Environment Diagnostics for Xenopixel Saber")
-    print("=" * 60)
-
-    # System info
+def diagnose_system_info() -> None:
+    """Print system and BlueZ information."""
     print_section("System Information")
     print(f"OS: {run_cmd('uname -a')}")
     print(f"Kernel: {run_cmd('uname -r')}")
 
-    # BlueZ version
     print_section("BlueZ Information")
-    print(
-        f"bluetoothd version: {run_cmd('bluetoothd --version 2>/dev/null || bluetoothctl --version')}"
-    )
-    print(
-        f"BlueZ packages: {run_cmd('dpkg -l 2>/dev/null | grep -i bluez | head -5 || pacman -Q bluez 2>/dev/null || rpm -qa bluez 2>/dev/null')}"
-    )
+    print(f"bluetoothd version: {run_cmd('bluetoothd --version')}")
+    print(f"BlueZ packages: {run_cmd('dpkg -l')}")
 
-    # Bluetooth service status
     print_section("Bluetooth Service")
-    print(
-        f"Service status: {run_cmd('systemctl status bluetooth --no-pager -l 2>/dev/null | head -20')}"
-    )
+    print(f"Service status: {run_cmd('systemctl status bluetooth --no-pager -l')}")
 
-    # Adapter info
+
+def diagnose_adapter_info() -> None:
+    """Print Bluetooth adapter information."""
     print_section("Bluetooth Adapter")
-    print(
-        f"hciconfig: {run_cmd('hciconfig -a 2>/dev/null || echo hciconfig not found')}"
-    )
-    print(
-        f"\nbtmgmt info: {run_cmd('btmgmt info 2>/dev/null | head -30 || echo btmgmt not found/needs sudo')}"
-    )
+    print(f"hciconfig: {run_cmd('hciconfig -a')}")
+    print(f"\nbtmgmt info: {run_cmd('btmgmt info')}")
 
-    # Known device pairing state
-    print_section(f"Device Pairing State ({KNOWN_MAC})")
-    print(
-        f"bluetoothctl info:\n{run_cmd(f'echo "info {KNOWN_MAC}" | bluetoothctl 2>/dev/null | grep -E "(Device|Name|Paired|Bonded|Trusted|Connected|UUID)"')}"
-    )
 
-    # Try to connect and inspect GATT
+def diagnose_pairing_state() -> None:
+    """Print known device pairing state."""
+    mac = KNOWN_MAC
+    print_section(f"Device Pairing State ({mac})")
+    print(f"bluetoothctl info:\n{run_cmd('bluetoothctl info ' + mac)}")
+
+
+async def diagnose_gatt() -> None:
+    """Connect and inspect GATT services."""
     print_section("GATT Inspection")
     try:
         print(f"Connecting to {KNOWN_MAC}...")
         async with BleakClient(KNOWN_MAC, timeout=15.0) as client:
             print(f"Connected: {client.is_connected}")
             print(f"MTU: {client.mtu_size}")
-
-            # Get bleak backend info
             print(f"\nBackend type: {type(client).__name__}")
 
-            # Inspect services
-            print("\nGATT Services of interest:")
-            for service in client.services:
-                if "dae" in service.uuid.lower() or "3ab" in service.uuid.lower():
-                    print(f"\n  Service: {service.uuid}")
-                    for char in service.characteristics:
-                        print(f"    Characteristic: {char.uuid}")
-                        print(f"      Handle: {char.handle}")
-                        print(f"      Properties: {char.properties}")
-
-                        # Try to read the characteristic
-                        if "read" in char.properties:
-                            try:
-                                value = await client.read_gatt_char(char.uuid)
-                                print(f"      Current value: {value}")
-                                try:
-                                    print(f"      Decoded: {value.decode('utf-8')}")
-                                except:
-                                    pass
-                            except Exception as e:
-                                print(f"      Read error: {e}")
-
-                        # Check descriptors
-                        for desc in char.descriptors:
-                            print(
-                                f"      Descriptor: {desc.uuid} (handle {desc.handle})"
-                            )
-                            if "2902" in str(desc.uuid):
-                                # Try to read CCCD
-                                try:
-                                    cccd_val = await client.read_gatt_descriptor(
-                                        desc.handle
-                                    )
-                                    print(
-                                        f"        CCCD value: {cccd_val.hex()} (0100=notify enabled)"
-                                    )
-                                except Exception as e:
-                                    print(f"        CCCD read error: {e}")
-
-            # Try to enable notifications and capture exact error
-            print("\n" + "-" * 40)
-            print("Testing notification enable...")
-
-            for char_uuid, name in [
-                (CHAR_CONTROL_ALT_UUID, "0x3AB1"),
-                (CHAR_CONTROL_UUID, "0xDAE1"),
-            ]:
-                print(f"\n  {name} ({char_uuid[:8]}...):")
-                try:
-                    await client.start_notify(char_uuid, lambda s, d: None)
-                    print("    ✅ start_notify succeeded")
-                    await client.stop_notify(char_uuid)
-                except Exception as e:
-                    print(f"    ❌ {type(e).__name__}: {e}")
+            await _inspect_services(client)
+            await _test_notifications(client)
 
     except Exception as e:
         print(f"Connection failed: {e}")
 
-    # Check D-Bus BlueZ object for device
+
+async def _inspect_services(client: BleakClient) -> None:
+    """Inspect GATT services of interest."""
+    print("\nGATT Services of interest:")
+    for service in client.services:
+        if "dae" not in service.uuid.lower() and "3ab" not in service.uuid.lower():
+            continue
+        print(f"\n  Service: {service.uuid}")
+        for char in service.characteristics:
+            print(f"    Characteristic: {char.uuid}")
+            print(f"      Handle: {char.handle}")
+            print(f"      Properties: {char.properties}")
+
+            if "read" in char.properties:
+                await _try_read_char(client, char)
+
+            for desc in char.descriptors:
+                print(f"      Descriptor: {desc.uuid} (handle {desc.handle})")
+                if "2902" in str(desc.uuid):
+                    await _try_read_cccd(client, desc)
+
+
+async def _try_read_char(client: BleakClient, char: object) -> None:
+    """Try to read a characteristic value."""
+    try:
+        value = await client.read_gatt_char(char.uuid)
+        print(f"      Current value: {value}")
+        try:
+            print(f"      Decoded: {value.decode('utf-8')}")
+        except UnicodeDecodeError:
+            pass
+    except Exception as e:
+        print(f"      Read error: {e}")
+
+
+async def _try_read_cccd(client: BleakClient, desc: object) -> None:
+    """Try to read a CCCD descriptor value."""
+    try:
+        cccd_val = await client.read_gatt_descriptor(desc.handle)
+        print(f"        CCCD value: {cccd_val.hex()} (0100=notify enabled)")
+    except Exception as e:
+        print(f"        CCCD read error: {e}")
+
+
+async def _test_notifications(client: BleakClient) -> None:
+    """Test enabling notifications on known characteristics."""
+    print("\n" + "-" * 40)
+    print("Testing notification enable...")
+
+    for char_uuid, name in [
+        (CHAR_CONTROL_ALT_UUID, "0x3AB1"),
+        (CHAR_CONTROL_UUID, "0xDAE1"),
+    ]:
+        print(f"\n  {name} ({char_uuid[:8]}...):")
+        try:
+            await client.start_notify(char_uuid, lambda s, d: None)
+            print("    start_notify succeeded")
+            await client.stop_notify(char_uuid)
+        except Exception as e:
+            print(f"    {type(e).__name__}: {e}")
+
+
+def diagnose_dbus() -> None:
+    """Check D-Bus BlueZ object for device."""
     print_section("D-Bus Device Properties")
     dbus_path = f"/org/bluez/hci0/dev_{KNOWN_MAC.replace(':', '_')}"
     print(f"D-Bus path: {dbus_path}")
-    print(
-        f"Properties: {run_cmd(f'busctl introspect org.bluez {dbus_path} 2>/dev/null | head -30 || echo busctl not found')}"
-    )
+    print(f"Properties: {run_cmd('busctl introspect org.bluez ' + dbus_path)}")
 
-    # Summary and recommendations
+
+def print_recommendations() -> None:
+    """Print summary and recommendations."""
     print_section("Summary & Recommendations")
     print("""
 The 'NotPermitted' error on CCCD writes typically means:
@@ -194,9 +197,17 @@ D) ESP32 Proxy (most reliable):
 """)
 
 
-# UUIDs
-CHAR_CONTROL_UUID = "0000dae1-0000-1000-8000-00805f9b34fb"
-CHAR_CONTROL_ALT_UUID = "00003ab1-0000-1000-8000-00805f9b34fb"
+async def diagnose() -> None:
+    """Run diagnostics."""
+    print("BLE Environment Diagnostics for Xenopixel Saber")
+    print("=" * 60)
+
+    diagnose_system_info()
+    diagnose_adapter_info()
+    diagnose_pairing_state()
+    await diagnose_gatt()
+    diagnose_dbus()
+    print_recommendations()
 
 
 if __name__ == "__main__":

@@ -131,7 +131,7 @@ The device reports comprehensive status including:
 | `SoftwareVersion` | string | Software version |
 | `CurrentSoundPackageNo` | int | Active sound font number |
 | `TotalSoundPackage` | int | Total available sound fonts |
-| `CurrentLightEffect` | int | Active blade effect |
+| `CurrentLightEffect` | int | Active blade effect (1-9) |
 | `BackgroundColor` | [R,G,B] | Current blade color |
 | `Brightness` | int | Current brightness (0-100) |
 | `Volume` | int | Current volume level |
@@ -172,6 +172,16 @@ Then on `0x3AB1`:
 ```
 
 **Note:** "HelloDamien" and "SaberOfDamien" appear to be hardcoded in the Xeno Configurator app (Damien = Xenopixel developer). These values work for all Xenopixel V3 sabers tested.
+
+## Keepalive / DeepSleep Prevention
+
+The saber has a configurable DeepSleep timer. When no BLE activity occurs for that duration, the saber powers off to save battery.
+
+The ESP32 proxy sends a periodic keepalive command (default: every 30 seconds) to prevent this while the saber is in range. The keepalive re-sends the current brightness value — this is idempotent and causes no visible change on the saber.
+
+When the saber leaves BLE range, the connection drops and keepalives stop, allowing the saber to enter DeepSleep naturally after its configured timeout.
+
+The keepalive interval is adjustable (0-300 seconds) via a Home Assistant number entity. Setting it to 0 disables keepalives.
 
 ## Capture Sessions
 

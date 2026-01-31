@@ -64,6 +64,9 @@ globals:
   - id: saber_blade_on
     type: bool
     initial_value: 'false'
+  - id: keepalive_interval_sec
+    type: int
+    initial_value: '30'
   - id: saber_hw_version
     type: std::string
     initial_value: '""'
@@ -544,15 +547,33 @@ number:
                   ESP_LOGI("xenopixel", "Sending sound font: %s", cmd);
                   return std::vector<uint8_t>(cmd, cmd + strlen(cmd));
 
+  # Keepalive interval (seconds, 0 = disabled)
+  # Sends a periodic command to prevent the saber from entering DeepSleep.
+  # When the saber is out of BLE range, keepalives stop and it sleeps naturally.
+  - platform: template
+    name: "${friendly_name} Keepalive Interval"
+    id: saber_keepalive_interval
+    icon: "mdi:timer-outline"
+    min_value: 0
+    max_value: 300
+    step: 5
+    initial_value: 30
+    optimistic: true
+    unit_of_measurement: "s"
+    set_action:
+      - globals.set:
+          id: keepalive_interval_sec
+          value: !lambda 'return (int)x;'
+
   # Light effect selection
   - platform: template
     name: "${friendly_name} Light Effect"
     id: saber_light_effect
     icon: "mdi:lightning-bolt"
-    min_value: 0
-    max_value: 50
+    min_value: 1
+    max_value: 9
     step: 1
-    initial_value: 0
+    initial_value: 1
     optimistic: true
     set_action:
       - if:
@@ -569,6 +590,49 @@ number:
                   snprintf(cmd, sizeof(cmd), "[2,{\"CurrentLightEffect\":%d}]", effect);
                   ESP_LOGI("xenopixel", "Sending light effect: %s", cmd);
                   return std::vector<uint8_t>(cmd, cmd + strlen(cmd));
+
+# Keepalive: periodically re-sends the current brightness to prevent saber DeepSleep.
+# Checks every second whether enough time has elapsed (based on configurable interval).
+# When the saber is out of BLE range, the connection drops and keepalives stop,
+# allowing the saber to enter DeepSleep naturally.
+interval:
+  - interval: 1s
+    then:
+      - lambda: |-
+          static uint32_t last_keepalive_ms = 0;
+          int interval = id(keepalive_interval_sec);
+          // 0 = disabled
+          if (interval <= 0) return;
+          if (!id(saber_authorized)) return;
+
+          uint32_t now = millis();
+          if ((now - last_keepalive_ms) < (uint32_t)(interval * 1000)) return;
+          last_keepalive_ms = now;
+
+          // Re-send current brightness — idempotent, no visible change
+          int brightness = (int)id(saber_brightness).state;
+          char cmd[48];
+          snprintf(cmd, sizeof(cmd), "[2,{\"Brightness\":%d}]", brightness);
+          ESP_LOGD("xenopixel", "Keepalive: %s", cmd);
+
+          auto chr = id(saber_ble).get_characteristic(
+            esphome::esp32_ble_tracker::ESPBTUUID::from_raw("00003ab0-0000-1000-8000-00805f9b34fb"),
+            esphome::esp32_ble_tracker::ESPBTUUID::from_raw("00003ab1-0000-1000-8000-00805f9b34fb")
+          );
+          if (chr != nullptr) {
+            auto status = esp_ble_gattc_write_char(
+              id(saber_ble).get_gattc_if(),
+              id(saber_ble).get_conn_id(),
+              chr->handle,
+              strlen(cmd),
+              (uint8_t*)cmd,
+              ESP_GATT_WRITE_TYPE_NO_RSP,
+              ESP_GATT_AUTH_REQ_NONE
+            );
+            if (status != ESP_OK) {
+              ESP_LOGW("xenopixel", "Keepalive write failed: %d", status);
+            }
+          }
 
 # Scripts for sending commands
 script:

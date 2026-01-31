@@ -186,6 +186,22 @@ class TestXenopixelProtocol:
         assert decoded[0] == 2
         assert decoded[1]["CurrentLightEffect"] == 5
 
+    def test_encode_light_effect_clamps_values(self) -> None:
+        """Test light effect values are clamped to valid range (1-9)."""
+        # Below minimum clamps to 1
+        packet = XenopixelProtocol.encode_light_effect(0)
+        decoded = json.loads(packet.decode("utf-8"))
+        assert decoded[1]["CurrentLightEffect"] == 1
+
+        packet = XenopixelProtocol.encode_light_effect(-5)
+        decoded = json.loads(packet.decode("utf-8"))
+        assert decoded[1]["CurrentLightEffect"] == 1
+
+        # Above maximum clamps to 9
+        packet = XenopixelProtocol.encode_light_effect(40)
+        decoded = json.loads(packet.decode("utf-8"))
+        assert decoded[1]["CurrentLightEffect"] == 9
+
     def test_decode_response_valid(self) -> None:
         """Test decoding a valid JSON response."""
         data = b'[3,{"Power":22}]'
