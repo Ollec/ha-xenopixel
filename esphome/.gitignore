@@ -1,0 +1,12 @@
+# ESPHome secrets (contains passwords and keys)
+secrets.yaml
+
+# ESPHome build artifacts
+.esphome/
+*.bin
+*.elf
+
+# Platform.io artifacts (if using)
+.pio/
+.pioenvs/
+.piolibdeps/

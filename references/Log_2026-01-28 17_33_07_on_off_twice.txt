@@ -1,0 +1,154 @@
+nRF Connect, 2026-01-28
+Saber (B0:CB:D8:DB:E1:AE)
+D	15:50:39.913	[Broadcast] Action received: android.bluetooth.device.action.ACL_CONNECTED
+V	15:50:39.965	Connecting to B0:CB:D8:DB:E1:AE...
+D	15:50:39.965	gatt = device.connectGatt(autoConnect = false, TRANSPORT_LE, preferred PHY = LE 1M)
+D	15:50:39.971	[Callback] Connection state changed with status: 0 and new state: CONNECTED (2)
+I	15:50:39.971	Connected to B0:CB:D8:DB:E1:AE
+I	15:50:39.972	MTU changed to: 512
+V	15:50:39.977	Discovering services...
+D	15:50:39.977	gatt.discoverServices()
+V	15:50:39.978	Discovering services...
+D	15:50:39.978	gatt.discoverServices()
+D	15:50:39.980	[Callback] Services discovered with status: 0
+I	15:50:39.980	Services discovered
+V	15:50:39.984	Generic Access (0x1800)
+- Device Name [R] (0x2A00)
+- Appearance [R] (0x2A01)
+Generic Attribute (0x1801)
+- Service Changed [I] (0x2A05)
+   Client Characteristic Configuration (0x2902)
+Unknown Service (0000dae0-0000-1000-8000-00805f9b34fb)
+- Unknown Characteristic [N R W] (0000dae1-0000-1000-8000-00805f9b34fb)
+   Client Characteristic Configuration (0x2902)
+Unknown Service (00003ab0-0000-1000-8000-00805f9b34fb)
+- Unknown Characteristic [N R WNR] (00003ab1-0000-1000-8000-00805f9b34fb)
+   Client Characteristic Configuration (0x2902)
+D	15:50:39.984	gatt.setCharacteristicNotification(00002a05-0000-1000-8000-00805f9b34fb, true)
+D	15:50:39.985	gatt.setCharacteristicNotification(0000dae1-0000-1000-8000-00805f9b34fb, true)
+D	15:50:39.986	gatt.setCharacteristicNotification(00003ab1-0000-1000-8000-00805f9b34fb, true)
+D	15:50:39.988	[Callback] Services discovered with status: 0
+I	15:50:39.988	Services discovered
+V	15:50:39.989	Generic Access (0x1800)
+- Device Name [R] (0x2A00)
+- Appearance [R] (0x2A01)
+Generic Attribute (0x1801)
+- Service Changed [I] (0x2A05)
+   Client Characteristic Configuration (0x2902)
+Unknown Service (0000dae0-0000-1000-8000-00805f9b34fb)
+- Unknown Characteristic [N R W] (0000dae1-0000-1000-8000-00805f9b34fb)
+   Client Characteristic Configuration (0x2902)
+Unknown Service (00003ab0-0000-1000-8000-00805f9b34fb)
+- Unknown Characteristic [N R WNR] (00003ab1-0000-1000-8000-00805f9b34fb)
+   Client Characteristic Configuration (0x2902)
+D	15:50:39.989	gatt.setCharacteristicNotification(00002a05-0000-1000-8000-00805f9b34fb, true)
+D	15:50:39.990	gatt.setCharacteristicNotification(0000dae1-0000-1000-8000-00805f9b34fb, true)
+D	15:50:39.990	gatt.setCharacteristicNotification(00003ab1-0000-1000-8000-00805f9b34fb, true)
+I	15:50:41.755	Notification received from 0000dae1-0000-1000-8000-00805f9b34fb, value: (0x) 5B-33-2C-7B-22-50-6F-77-65-72-4F-6E-22-3A-66-61-6C-73-65-7D-5D, "[3,{"PowerOn":false}]"
+A	15:50:41.755	"(0x) 5B-33-2C-7B-22-50-6F-77-65-72-4F-6E-22-3A-66-61-6C-73-65-7D-5D, "[3,{"PowerOn":false}]"" received
+I	15:50:46.049	Notification received from 0000dae1-0000-1000-8000-00805f9b34fb, value: (0x) 5B-33-2C-7B-22-50-6F-77-65-72-4F-6E-22-3A-74-72-75-65-7D-5D, "[3,{"PowerOn":true}]"
+A	15:50:46.049	"(0x) 5B-33-2C-7B-22-50-6F-77-65-72-4F-6E-22-3A-74-72-75-65-7D-5D, "[3,{"PowerOn":true}]"" received
+I	15:50:47.800	Notification received from 0000dae1-0000-1000-8000-00805f9b34fb, value: (0x) 5B-33-2C-7B-22-50-6F-77-65-72-4F-6E-22-3A-66-61-6C-73-65-7D-5D, "[3,{"PowerOn":false}]"
+A	15:50:47.800	"(0x) 5B-33-2C-7B-22-50-6F-77-65-72-4F-6E-22-3A-66-61-6C-73-65-7D-5D, "[3,{"PowerOn":false}]"" received
+I	15:50:49.654	Notification received from 0000dae1-0000-1000-8000-00805f9b34fb, value: (0x) 5B-33-2C-7B-22-50-6F-77-65-72-4F-6E-22-3A-74-72-75-65-7D-5D, "[3,{"PowerOn":true}]"
+A	15:50:49.654	"(0x) 5B-33-2C-7B-22-50-6F-77-65-72-4F-6E-22-3A-74-72-75-65-7D-5D, "[3,{"PowerOn":true}]"" received
+I	15:54:25.054	Notification received from 0000dae1-0000-1000-8000-00805f9b34fb, value: (0x) 5B-33-2C-7B-22-50-6F-77-65-72-4F-6E-22-3A-66-61-6C-73-65-7D-5D, "[3,{"PowerOn":false}]"
+A	15:54:25.054	"(0x) 5B-33-2C-7B-22-50-6F-77-65-72-4F-6E-22-3A-66-61-6C-73-65-7D-5D, "[3,{"PowerOn":false}]"" received
+I	15:54:26.553	Notification received from 0000dae1-0000-1000-8000-00805f9b34fb, value: (0x) 5B-33-2C-7B-22-50-6F-77-65-72-4F-6E-22-3A-74-72-75-65-7D-5D, "[3,{"PowerOn":true}]"
+A	15:54:26.553	"(0x) 5B-33-2C-7B-22-50-6F-77-65-72-4F-6E-22-3A-74-72-75-65-7D-5D, "[3,{"PowerOn":true}]"" received
+I	15:55:26.058	Notification received from 0000dae1-0000-1000-8000-00805f9b34fb, value: (0x) 5B-33-2C-7B-22-50-6F-77-65-72-22-3A-32-32-7D-5D, "[3,{"Power":22}]"
+A	15:55:26.058	"(0x) 5B-33-2C-7B-22-50-6F-77-65-72-22-3A-32-32-7D-5D, "[3,{"Power":22}]"" received
+I	15:56:56.703	Notification received from 0000dae1-0000-1000-8000-00805f9b34fb, value: (0x) 5B-33-2C-7B-22-50-6F-77-65-72-4F-6E-22-3A-66-61-6C-73-65-7D-5D, "[3,{"PowerOn":false}]"
+A	15:56:56.704	"(0x) 5B-33-2C-7B-22-50-6F-77-65-72-4F-6E-22-3A-66-61-6C-73-65-7D-5D, "[3,{"PowerOn":false}]"" received
+I	15:56:56.752	Notification received from 0000dae1-0000-1000-8000-00805f9b34fb, value: (0x) 5B-33-2C-7B-22-50-6F-77-65-72-22-3A-31-7D-5D, "[3,{"Power":1}]"
+A	15:56:56.752	"(0x) 5B-33-2C-7B-22-50-6F-77-65-72-22-3A-31-7D-5D, "[3,{"Power":1}]"" received
+D	15:57:05.614	[Callback] Connection state changed with status: 8 and new state: DISCONNECTED (0)
+E	15:57:05.616	Error 8 (0x8): GATT CONN TIMEOUT
+I	15:57:05.616	Disconnected
+D	15:57:06.154	[Broadcast] Action received: android.bluetooth.device.action.ACL_DISCONNECTED
+D	17:02:00.567	gatt.close()
+D	17:02:00.567	wait(200)
+V	17:02:00.768	Connecting to B0:CB:D8:DB:E1:AE...
+D	17:02:00.770	gatt = device.connectGatt(autoConnect = false, TRANSPORT_LE, preferred PHY = LE 1M)
+D	17:02:00.969	[Callback] Connection state changed with status: 0 and new state: CONNECTED (2)
+I	17:02:00.970	Connected to B0:CB:D8:DB:E1:AE
+V	17:02:00.972	Discovering services...
+D	17:02:00.972	gatt.discoverServices()
+D	17:02:00.988	[Broadcast] Action received: android.bluetooth.device.action.ACL_CONNECTED
+D	17:02:01.573	[Callback] Services discovered with status: 0
+I	17:02:01.573	Services discovered
+V	17:02:01.582	Generic Access (0x1800)
+- Device Name [R] (0x2A00)
+- Appearance [R] (0x2A01)
+Generic Attribute (0x1801)
+- Service Changed [I] (0x2A05)
+   Client Characteristic Configuration (0x2902)
+Unknown Service (0000dae0-0000-1000-8000-00805f9b34fb)
+- Unknown Characteristic [N R W] (0000dae1-0000-1000-8000-00805f9b34fb)
+   Client Characteristic Configuration (0x2902)
+Unknown Service (00003ab0-0000-1000-8000-00805f9b34fb)
+- Unknown Characteristic [N R WNR] (00003ab1-0000-1000-8000-00805f9b34fb)
+   Client Characteristic Configuration (0x2902)
+D	17:02:01.584	gatt.setCharacteristicNotification(00002a05-0000-1000-8000-00805f9b34fb, true)
+D	17:02:01.587	gatt.setCharacteristicNotification(0000dae1-0000-1000-8000-00805f9b34fb, true)
+D	17:02:01.588	gatt.setCharacteristicNotification(00003ab1-0000-1000-8000-00805f9b34fb, true)
+I	17:02:01.746	Connection parameters updated (interval: 50.0ms, latency: 0, timeout: 5000ms)
+V	17:05:04.753	Reading descriptor 00002902-0000-1000-8000-00805f9b34fb
+D	17:05:04.753	gatt.readDescriptor(00002902-0000-1000-8000-00805f9b34fb)
+I	17:05:04.853	Read Response received from descr. 00002902-0000-1000-8000-00805f9b34fb, value: (0x) 00-00
+A	17:05:04.853	"Notifications and indications disabled" received
+V	17:05:06.880	Reading descriptor 00002902-0000-1000-8000-00805f9b34fb
+D	17:05:06.880	gatt.readDescriptor(00002902-0000-1000-8000-00805f9b34fb)
+I	17:05:06.949	Read Response received from descr. 00002902-0000-1000-8000-00805f9b34fb, value: (0x) 00-00
+A	17:05:06.949	"Notifications and indications disabled" received
+V	17:05:08.058	Reading characteristic 0000dae1-0000-1000-8000-00805f9b34fb
+D	17:05:08.058	gatt.readCharacteristic(0000dae1-0000-1000-8000-00805f9b34fb)
+I	17:05:08.146	Read Response received from 0000dae1-0000-1000-8000-00805f9b34fb, value: 0 bytes
+V	17:06:58.063	Disconnecting...
+D	17:06:58.064	gatt.disconnect()
+D	17:06:58.080	[Callback] Connection state changed with status: 0 and new state: DISCONNECTED (0)
+I	17:06:58.080	Disconnected
+D	17:06:59.138	[Broadcast] Action received: android.bluetooth.device.action.ACL_DISCONNECTED
+D	17:31:22.675	gatt.close()
+D	17:31:22.676	wait(200)
+V	17:31:22.882	Connecting to B0:CB:D8:DB:E1:AE...
+D	17:31:22.882	gatt = device.connectGatt(autoConnect = false, TRANSPORT_LE, preferred PHY = LE 1M)
+D	17:31:23.254	[Callback] Connection state changed with status: 0 and new state: CONNECTED (2)
+I	17:31:23.254	Connected to B0:CB:D8:DB:E1:AE
+V	17:31:23.257	Discovering services...
+D	17:31:23.257	gatt.discoverServices()
+D	17:31:23.282	[Broadcast] Action received: android.bluetooth.device.action.ACL_CONNECTED
+D	17:31:23.882	[Callback] Services discovered with status: 0
+I	17:31:23.882	Services discovered
+V	17:31:23.889	Generic Access (0x1800)
+- Device Name [R] (0x2A00)
+- Appearance [R] (0x2A01)
+Generic Attribute (0x1801)
+- Service Changed [I] (0x2A05)
+   Client Characteristic Configuration (0x2902)
+Unknown Service (0000dae0-0000-1000-8000-00805f9b34fb)
+- Unknown Characteristic [N R W] (0000dae1-0000-1000-8000-00805f9b34fb)
+   Client Characteristic Configuration (0x2902)
+Unknown Service (00003ab0-0000-1000-8000-00805f9b34fb)
+- Unknown Characteristic [N R WNR] (00003ab1-0000-1000-8000-00805f9b34fb)
+   Client Characteristic Configuration (0x2902)
+D	17:31:23.890	gatt.setCharacteristicNotification(00002a05-0000-1000-8000-00805f9b34fb, true)
+D	17:31:23.893	gatt.setCharacteristicNotification(0000dae1-0000-1000-8000-00805f9b34fb, true)
+D	17:31:23.894	gatt.setCharacteristicNotification(00003ab1-0000-1000-8000-00805f9b34fb, true)
+I	17:31:24.068	Connection parameters updated (interval: 50.0ms, latency: 0, timeout: 5000ms)
+I	17:32:48.094	Notification received from 0000dae1-0000-1000-8000-00805f9b34fb, value: (0x) 5B-33-2C-7B-22-48-61-72-64-77-61-72-65-56-65-72-73-69-6F-6E-22-3A-22-58-45-4E-4F-41-30-34-35-32-35-43-57-31-33-39-30-37-22-2C-22-53-6F-66-74-77-61-72-65-56-65-72-73-69-6F-6E-22-3A-22-44-4D-4E-5F-58-45-4E-4F-5F-42-5F-53-56-31-2E-34-2E-30-22-2C-22-50-6F-77-65-72-4F-6E-22-3A-66-61-6C-73-65-2C-22-43-75-72-72-65-6E-74-53-6F-75-6E-64-50-61-63-6B-61-67-65-4E-6F-22-3A-33-32-2C-22-54-6F-74-61-6C-53-6F-75-6E-64-50-61-63-6B-61-67-65-22-3A-33-34-2C-22-43-75-72-72-65-6E-74-4C-69-67-68-74-45-66-66-65-63-74-22-3A-30-2C-22-54-6F-74-61-6C-4C-69-67-68-74-45-66-66-65-63-74-22-3A-38-2C-22-43-75-72-72-65-6E-74-4C-6F-63-6B-75-70-22-3A-30-2C-22-54-6F-74-61-6C-4C-6F-63-6B-75-70-22-3A-31-2C-22-43-75-72-72-65-6E-74-44-72-61-67-22-3A-30-2C-22-54-6F-74-61-6C-44-72-61-67-22-3A-31-2C-22-43-75-72-72-65-6E-74-42-6C-61-73-74-65-72-22-3A-32-2C-22-54-6F-74-61-6C-42-6C-61-73-74-65-72-22-3A-33-2C-22-43-75-72-72-65-6E-74-43-6C-61-73-68-22-3A-32-2C-22-54-6F-74-61-6C-43-6C-61-73-68-22-3A-33-2C-22-43-75-72-72-65-6E-74-46-6F-72-63-65-22-3A-30-2C-22-54-6F-74-61-6C-46-6F-72-63-65-22-3A-32-2C-22-43-75-72-72-65-6E-74-50-6F-73-74-4F-66-66-22-3A-30-2C-22-54-6F-74-61-6C-50-6F-73-74-4F-66-66-22-3A-30-2C-22-43-75-72-72-65-6E-74-4D-6F-64-65-22-3A-30-2C-22-54-6F-74-61-6C-4D-6F-64-65-22-3A-38-2C-22-50-72-65-6F-6E-54-69-6D-65-22-3A-30-2C-22-50-6F-77-65-72-22-3A-36-33-2C-22-56-6F-6C-75-6D-65-22-3A-30-2C-22-42-61-63-6B-67-72-6F-75-6E-64-43-6F-6C-6F-72-22-3A-5B-32-35-35-2C-31-35-33-2C-31-38-5D-7D-5D, "[3,{"HardwareVersion":"XENOA04525CW13907","SoftwareVersion":"DMN_XENO_B_SV1.4.0","PowerOn":false,"CurrentSoundPackageNo":32,"TotalSoundPackage":34,"CurrentLightEffect":0,"TotalLightEffect":8,"CurrentLockup":0,"TotalLockup":1,"CurrentDrag":0,"TotalDrag":1,"CurrentBlaster":2,"TotalBlaster":3,"CurrentClash":2,"TotalClash":3,"CurrentForce":0,"TotalForce":2,"CurrentPostOff":0,"TotalPostOff":0,"CurrentMode":0,"TotalMode":8,"PreonTime":0,"Power":63,"Volume":0,"BackgroundColor":[255,153,18]}]"
+A	17:32:48.094	"(0x) 5B-33-2C-7B-22-48-61-72-64-77-61-72-65-56-65-72-73-69-6F-6E-22-3A-22-58-45-4E-4F-41-30-34-35-32-35-43-57-31-33-39-30-37-22-2C-22-53-6F-66-74-77-61-72-65-56-65-72-73-69-6F-6E-22-3A-22-44-4D-4E-5F-58-45-4E-4F-5F-42-5F-53-56-31-2E-34-2E-30-22-2C-22-50-6F-77-65-72-4F-6E-22-3A-66-61-6C-73-65-2C-22-43-75-72-72-65-6E-74-53-6F-75-6E-64-50-61-63-6B-61-67-65-4E-6F-22-3A-33-32-2C-22-54-6F-74-61-6C-53-6F-75-6E-64-50-61-63-6B-61-67-65-22-3A-33-34-2C-22-43-75-72-72-65-6E-74-4C-69-67-68-74-45-66-66-65-63-74-22-3A-30-2C-22-54-6F-74-61-6C-4C-69-67-68-74-45-66-66-65-63-74-22-3A-38-2C-22-43-75-72-72-65-6E-74-4C-6F-63-6B-75-70-22-3A-30-2C-22-54-6F-74-61-6C-4C-6F-63-6B-75-70-22-3A-31-2C-22-43-75-72-72-65-6E-74-44-72-61-67-22-3A-30-2C-22-54-6F-74-61-6C-44-72-61-67-22-3A-31-2C-22-43-75-72-72-65-6E-74-42-6C-61-73-74-65-72-22-3A-32-2C-22-54-6F-74-61-6C-42-6C-61-73-74-65-72-22-3A-33-2C-22-43-75-72-72-65-6E-74-43-6C-61-73-68-22-3A-32-2C-22-54-6F-74-61-6C-43-6C-61-73-68-22-3A-33-2C-22-43-75-72-72-65-6E-74-46-6F-72-63-65-22-3A-30-2C-22-54-6F-74-61-6C-46-6F-72-63-65-22-3A-32-2C-22-43-75-72-72-65-6E-74-50-6F-73-74-4F-66-66-22-3A-30-2C-22-54-6F-74-61-6C-50-6F-73-74-4F-66-66-22-3A-30-2C-22-43-75-72-72-65-6E-74-4D-6F-64-65-22-3A-30-2C-22-54-6F-74-61-6C-4D-6F-64-65-22-3A-38-2C-22-50-72-65-6F-6E-54-69-6D-65-22-3A-30-2C-22-50-6F-77-65-72-22-3A-36-33-2C-22-56-6F-6C-75-6D-65-22-3A-30-2C-22-42-61-63-6B-67-72-6F-75-6E-64-43-6F-6C-6F-72-22-3A-5B-32-35-35-2C-31-35-33-2C-31-38-5D-7D-5D, "[3,{"HardwareVersion":"XENOA04525CW13907","SoftwareVersion":"DMN_XENO_B_SV1.4.0","PowerOn":false,"CurrentSoundPackageNo":32,"TotalSoundPackage":34,"CurrentLightEffect":0,"TotalLightEffect":8,"CurrentLockup":0,"TotalLockup":1,"CurrentDrag":0,"TotalDrag":1,"CurrentBlaster":2,"TotalBlaster":3,"CurrentClash":2,"TotalClash":3,"CurrentForce":0,"TotalForce":2,"CurrentPostOff":0,"TotalPostOff":0,"CurrentMode":0,"TotalMode":8,"PreonTime":0,"Power":63,"Volume":0,"BackgroundColor":[255,153,18]}]"" received
+I	17:32:48.178	Notification received from 00003ab1-0000-1000-8000-00805f9b34fb, value: (0x) 5B-33-2C-7B-22-41-75-74-68-6F-72-69-7A-65-22-3A-22-41-63-63-65-73-73-41-6C-6C-6F-77-65-64-22-7D-5D, "[3,{"Authorize":"AccessAllowed"}]"
+A	17:32:48.178	"(0x) 5B-33-2C-7B-22-41-75-74-68-6F-72-69-7A-65-22-3A-22-41-63-63-65-73-73-41-6C-6C-6F-77-65-64-22-7D-5D, "[3,{"Authorize":"AccessAllowed"}]"" received
+I	17:32:48.281	Notification received from 0000dae1-0000-1000-8000-00805f9b34fb, value: (0x) 5B-33-2C-7B-22-42-75-74-74-6F-6E-4E-75-6D-22-3A-31-2C-22-42-72-69-67-68-74-6E-65-73-73-22-3A-31-30-30-2C-22-43-6F-75-6E-74-64-6F-77-6E-22-3A-74-72-75-65-2C-22-4D-61-69-6E-42-6C-61-64-65-22-3A-74-72-75-65-2C-22-4D-61-69-6E-42-6C-61-64-65-4C-65-6E-67-74-68-22-3A-31-32-39-2C-22-53-69-64-65-42-6C-61-64-65-22-3A-74-72-75-65-2C-22-53-69-64-65-42-6C-61-64-65-4C-65-6E-67-74-68-22-3A-31-32-39-2C-22-53-69-64-65-42-6C-61-64-65-44-65-6C-61-79-22-3A-32-30-30-2C-22-43-6C-61-73-68-4F-6E-22-3A-74-72-75-65-2C-22-43-6C-61-73-68-53-65-6E-73-69-74-69-76-69-74-79-22-3A-31-33-2C-22-4D-6F-74-6F-72-53-70-65-65-64-22-3A-30-2C-22-4D-61-74-72-69-78-22-3A-66-61-6C-73-65-2C-22-4F-6E-54-69-6D-65-22-3A-32-30-30-2C-22-4F-66-66-54-69-6D-65-22-3A-36-30-30-2C-22-41-77-61-6B-65-6E-54-69-6D-65-22-3A-31-30-30-30-2C-22-53-6C-65-65-70-54-69-6D-65-22-3A-31-30-30-30-30-2C-22-49-64-6C-65-53-6C-65-65-70-54-69-6D-65-22-3A-33-30-2C-22-50-75-6C-6C-50-75-73-68-53-77-69-74-63-68-4F-6E-22-3A-74-72-75-65-2C-22-50-75-73-68-50-75-6C-6C-53-77-69-74-63-68-4F-6E-22-3A-74-72-75-65-2C-22-50-75-6C-6C-53-65-6E-73-69-74-69-76-69-74-79-22-3A-31-33-2C-22-50-75-73-68-53-65-6E-73-69-74-69-76-69-74-79-22-3A-31-38-2C-22-54-77-69-73-74-4F-6E-53-77-69-74-63-68-4F-6E-22-3A-74-72-75-65-2C-22-54-77-69-73-74-4F-66-66-53-77-69-74-63-68-4F-6E-22-3A-74-72-75-65-2C-22-54-77-69-73-74-53-65-6E-73-69-74-69-76-69-74-79-22-3A-32-32-30-2C-22-53-77-69-6E-67-53-77-69-74-63-68-4F-6E-22-3A-74-72-75-65-7D-5D, "[3,{"ButtonNum":1,"Brightness":100,"Countdown":true,"MainBlade":true,"MainBladeLength":129,"SideBlade":true,"SideBladeLength":129,"SideBladeDelay":200,"ClashOn":true,"ClashSensitivity":13,"MotorSpeed":0,"Matrix":false,"OnTime":200,"OffTime":600,"AwakenTime":1000,"SleepTime":10000,"IdleSleepTime":30,"PullPushSwitchOn":true,"PushPullSwitchOn":true,"PullSensitivity":13,"PushSensitivity":18,"TwistOnSwitchOn":true,"TwistOffSwitchOn":true,"TwistSensitivity":220,"SwingSwitchOn":true}]"
+A	17:32:48.281	"(0x) 5B-33-2C-7B-22-42-75-74-74-6F-6E-4E-75-6D-22-3A-31-2C-22-42-72-69-67-68-74-6E-65-73-73-22-3A-31-30-30-2C-22-43-6F-75-6E-74-64-6F-77-6E-22-3A-74-72-75-65-2C-22-4D-61-69-6E-42-6C-61-64-65-22-3A-74-72-75-65-2C-22-4D-61-69-6E-42-6C-61-64-65-4C-65-6E-67-74-68-22-3A-31-32-39-2C-22-53-69-64-65-42-6C-61-64-65-22-3A-74-72-75-65-2C-22-53-69-64-65-42-6C-61-64-65-4C-65-6E-67-74-68-22-3A-31-32-39-2C-22-53-69-64-65-42-6C-61-64-65-44-65-6C-61-79-22-3A-32-30-30-2C-22-43-6C-61-73-68-4F-6E-22-3A-74-72-75-65-2C-22-43-6C-61-73-68-53-65-6E-73-69-74-69-76-69-74-79-22-3A-31-33-2C-22-4D-6F-74-6F-72-53-70-65-65-64-22-3A-30-2C-22-4D-61-74-72-69-78-22-3A-66-61-6C-73-65-2C-22-4F-6E-54-69-6D-65-22-3A-32-30-30-2C-22-4F-66-66-54-69-6D-65-22-3A-36-30-30-2C-22-41-77-61-6B-65-6E-54-69-6D-65-22-3A-31-30-30-30-2C-22-53-6C-65-65-70-54-69-6D-65-22-3A-31-30-30-30-30-2C-22-49-64-6C-65-53-6C-65-65-70-54-69-6D-65-22-3A-33-30-2C-22-50-75-6C-6C-50-75-73-68-53-77-69-74-63-68-4F-6E-22-3A-74-72-75-65-2C-22-50-75-73-68-50-75-6C-6C-53-77-69-74-63-68-4F-6E-22-3A-74-72-75-65-2C-22-50-75-6C-6C-53-65-6E-73-69-74-69-76-69-74-79-22-3A-31-33-2C-22-50-75-73-68-53-65-6E-73-69-74-69-76-69-74-79-22-3A-31-38-2C-22-54-77-69-73-74-4F-6E-53-77-69-74-63-68-4F-6E-22-3A-74-72-75-65-2C-22-54-77-69-73-74-4F-66-66-53-77-69-74-63-68-4F-6E-22-3A-74-72-75-65-2C-22-54-77-69-73-74-53-65-6E-73-69-74-69-76-69-74-79-22-3A-32-32-30-2C-22-53-77-69-6E-67-53-77-69-74-63-68-4F-6E-22-3A-74-72-75-65-7D-5D, "[3,{"ButtonNum":1,"Brightness":100,"Countdown":true,"MainBlade":true,"MainBladeLength":129,"SideBlade":true,"SideBladeLength":129,"SideBladeDelay":200,"ClashOn":true,"ClashSensitivity":13,"MotorSpeed":0,"Matrix":false,"OnTime":200,"OffTime":600,"AwakenTime":1000,"SleepTime":10000,"IdleSleepTime":30,"PullPushSwitchOn":true,"PushPullSwitchOn":true,"PullSensitivity":13,"PushSensitivity":18,"TwistOnSwitchOn":true,"TwistOffSwitchOn":true,"TwistSensitivity":220,"SwingSwitchOn":true}]"" received
+I	17:32:48.378	Notification received from 0000dae1-0000-1000-8000-00805f9b34fb, value: (0x) 5B-33-2C-7B-22-53-77-69-6E-67-53-65-6E-73-69-74-69-76-69-74-79-22-3A-34-30-30-2C-22-53-77-69-6E-67-53-6F-75-6E-64-53-65-6E-73-69-74-69-76-69-74-79-22-3A-34-2C-22-48-61-72-64-77-61-72-65-54-79-70-65-22-3A-22-50-69-78-65-6C-22-2C-22-53-6F-66-74-77-61-72-65-54-79-70-65-22-3A-22-50-69-78-65-6C-22-2C-22-42-47-4D-4F-6E-22-3A-66-61-6C-73-65-2C-22-4D-6F-74-69-6F-6E-43-6F-6E-74-72-6F-6C-22-3A-74-72-75-65-2C-22-56-65-6C-6F-63-69-74-79-4D-6F-64-65-22-3A-66-61-6C-73-65-2C-22-54-6F-72-63-68-4D-6F-64-65-22-3A-66-61-6C-73-65-2C-22-47-68-6F-73-74-4D-6F-64-65-22-3A-66-61-6C-73-65-2C-22-42-6C-61-73-74-65-72-4D-6F-64-65-22-3A-66-61-6C-73-65-2C-22-4C-69-67-68-74-6E-69-6E-67-4D-6F-64-65-22-3A-66-61-6C-73-65-2C-22-42-6C-6F-63-6B-4D-6F-64-65-22-3A-66-61-6C-73-65-2C-22-42-61-74-74-6C-65-4D-6F-64-65-22-3A-66-61-6C-73-65-2C-22-66-6F-6E-74-6E-61-6D-65-22-3A-22-57-68-69-73-70-65-72-73-4F-66-50-6F-77-65-72-22-2C-22-46-69-6C-65-49-44-22-3A-5B-31-2C-30-5D-2C-22-48-61-6E-64-53-68-61-6B-65-22-3A-22-4F-4B-22-7D-5D, "[3,{"SwingSensitivity":400,"SwingSoundSensitivity":4,"HardwareType":"Pixel","SoftwareType":"Pixel","BGMOn":false,"MotionControl":true,"VelocityMode":false,"TorchMode":false,"GhostMode":false,"BlasterMode":false,"LightningMode":false,"BlockMode":false,"BattleMode":false,"fontname":"WhispersOfPower","FileID":[1,0],"HandShake":"OK"}]"
+A	17:32:48.378	"(0x) 5B-33-2C-7B-22-53-77-69-6E-67-53-65-6E-73-69-74-69-76-69-74-79-22-3A-34-30-30-2C-22-53-77-69-6E-67-53-6F-75-6E-64-53-65-6E-73-69-74-69-76-69-74-79-22-3A-34-2C-22-48-61-72-64-77-61-72-65-54-79-70-65-22-3A-22-50-69-78-65-6C-22-2C-22-53-6F-66-74-77-61-72-65-54-79-70-65-22-3A-22-50-69-78-65-6C-22-2C-22-42-47-4D-4F-6E-22-3A-66-61-6C-73-65-2C-22-4D-6F-74-69-6F-6E-43-6F-6E-74-72-6F-6C-22-3A-74-72-75-65-2C-22-56-65-6C-6F-63-69-74-79-4D-6F-64-65-22-3A-66-61-6C-73-65-2C-22-54-6F-72-63-68-4D-6F-64-65-22-3A-66-61-6C-73-65-2C-22-47-68-6F-73-74-4D-6F-64-65-22-3A-66-61-6C-73-65-2C-22-42-6C-61-73-74-65-72-4D-6F-64-65-22-3A-66-61-6C-73-65-2C-22-4C-69-67-68-74-6E-69-6E-67-4D-6F-64-65-22-3A-66-61-6C-73-65-2C-22-42-6C-6F-63-6B-4D-6F-64-65-22-3A-66-61-6C-73-65-2C-22-42-61-74-74-6C-65-4D-6F-64-65-22-3A-66-61-6C-73-65-2C-22-66-6F-6E-74-6E-61-6D-65-22-3A-22-57-68-69-73-70-65-72-73-4F-66-50-6F-77-65-72-22-2C-22-46-69-6C-65-49-44-22-3A-5B-31-2C-30-5D-2C-22-48-61-6E-64-53-68-61-6B-65-22-3A-22-4F-4B-22-7D-5D, "[3,{"SwingSensitivity":400,"SwingSoundSensitivity":4,"HardwareType":"Pixel","SoftwareType":"Pixel","BGMOn":false,"MotionControl":true,"VelocityMode":false,"TorchMode":false,"GhostMode":false,"BlasterMode":false,"LightningMode":false,"BlockMode":false,"BattleMode":false,"fontname":"WhispersOfPower","FileID":[1,0],"HandShake":"OK"}]"" received
+I	17:32:51.425	Notification received from 0000dae1-0000-1000-8000-00805f9b34fb, value: (0x) 5B-33-2C-7B-22-50-6F-77-65-72-4F-6E-22-3A-74-72-75-65-7D-5D, "[3,{"PowerOn":true}]"
+A	17:32:51.425	"(0x) 5B-33-2C-7B-22-50-6F-77-65-72-4F-6E-22-3A-74-72-75-65-7D-5D, "[3,{"PowerOn":true}]"" received
+I	17:32:53.174	Notification received from 0000dae1-0000-1000-8000-00805f9b34fb, value: (0x) 5B-33-2C-7B-22-50-6F-77-65-72-4F-6E-22-3A-66-61-6C-73-65-7D-5D, "[3,{"PowerOn":false}]"
+A	17:32:53.174	"(0x) 5B-33-2C-7B-22-50-6F-77-65-72-4F-6E-22-3A-66-61-6C-73-65-7D-5D, "[3,{"PowerOn":false}]"" received
+I	17:32:54.674	Notification received from 0000dae1-0000-1000-8000-00805f9b34fb, value: (0x) 5B-33-2C-7B-22-50-6F-77-65-72-4F-6E-22-3A-74-72-75-65-7D-5D, "[3,{"PowerOn":true}]"
+A	17:32:54.674	"(0x) 5B-33-2C-7B-22-50-6F-77-65-72-4F-6E-22-3A-74-72-75-65-7D-5D, "[3,{"PowerOn":true}]"" received
+I	17:32:56.475	Notification received from 0000dae1-0000-1000-8000-00805f9b34fb, value: (0x) 5B-33-2C-7B-22-50-6F-77-65-72-4F-6E-22-3A-66-61-6C-73-65-7D-5D, "[3,{"PowerOn":false}]"
+A	17:32:56.475	"(0x) 5B-33-2C-7B-22-50-6F-77-65-72-4F-6E-22-3A-66-61-6C-73-65-7D-5D, "[3,{"PowerOn":false}]"" received

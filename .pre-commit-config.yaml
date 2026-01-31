@@ -1,0 +1,38 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: ["--unsafe"]
+      - id: check-json
+      - id: check-added-large-files
+        args: ["--maxkb=1000"]
+      - id: check-merge-conflict
+      - id: debug-statements
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.14
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.19.1
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - types-setuptools
+        args: ["--ignore-missing-imports"]
+        files: ^custom_components/
+
+  - repo: local
+    hooks:
+      - id: check-manifest
+        name: Check manifest.json
+        entry: python -c "import json; json.load(open('custom_components/xenopixel/manifest.json'))"
+        language: python
+        files: manifest\.json$
+        pass_filenames: false

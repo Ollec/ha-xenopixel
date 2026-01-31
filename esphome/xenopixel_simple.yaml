@@ -1,0 +1,655 @@
+# ESPHome configuration for Xenopixel Lightsaber BLE Proxy
+# Full control version with notification-driven state sync
+#
+# Hardware: ESP32 (any variant with BLE support)
+#
+# Installation:
+#   1. Install ESPHome: pip install esphome
+#   2. Create secrets.yaml with your credentials
+#   3. Update saber_mac below
+#   4. Compile and upload: esphome run xenopixel_simple.yaml
+
+substitutions:
+  device_name: xenopixel-saber
+  friendly_name: "Xenopixel Saber"
+  # UPDATE THIS to your saber's MAC address
+  saber_mac: "B0:CB:D8:DB:E1:AE"
+
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+  level: DEBUG
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+# Enable OTA updates
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "${device_name} Fallback"
+    password: !secret ap_password
+
+# Captive portal for WiFi setup
+captive_portal:
+
+# Enable Bluetooth
+esp32_ble_tracker:
+  scan_parameters:
+    active: true
+
+# Global variables for state tracking
+globals:
+  - id: saber_authorized
+    type: bool
+    initial_value: 'false'
+  - id: saber_battery
+    type: int
+    initial_value: '0'
+  - id: saber_blade_on
+    type: bool
+    initial_value: 'false'
+  - id: saber_hw_version
+    type: std::string
+    initial_value: '""'
+  - id: saber_sw_version
+    type: std::string
+    initial_value: '""'
+  - id: syncing_from_notification
+    type: bool
+    initial_value: 'false'
+
+# BLE Client connection
+ble_client:
+  - mac_address: ${saber_mac}
+    id: saber_ble
+    on_connect:
+      then:
+        - logger.log: "BLE Connected to saber!"
+        - binary_sensor.template.publish:
+            id: saber_connected
+            state: ON
+        - globals.set:
+            id: saber_authorized
+            value: 'false'
+        - delay: 2s
+        - logger.log: "Enabling indications on Service Changed (0x2A05)..."
+        - lambda: |-
+            // The saber requires indications enabled on 0x2A05 (Service Changed)
+            // before it sends the authorization handshake.
+            //
+            // ESPHome's get_characteristic() only finds characteristics registered
+            // by child components (text_sensors etc). Since nothing references the
+            // 0x1801 service, we must use ESP-IDF GATTC cache APIs directly.
+            auto gattc_if = id(saber_ble).get_gattc_if();
+            auto conn_id = id(saber_ble).get_conn_id();
+
+            // Step 1: Find 0x1801 service in the ESP-IDF GATTC cache
+            esp_bt_uuid_t svc_uuid;
+            svc_uuid.len = ESP_UUID_LEN_16;
+            svc_uuid.uuid.uuid16 = 0x1801;
+            uint16_t svc_count = 1;
+            esp_gattc_service_elem_t svc_result;
+            auto status = esp_ble_gattc_get_service(gattc_if, conn_id, &svc_uuid, &svc_result, &svc_count, 0);
+            if (status != ESP_OK || svc_count == 0) {
+              ESP_LOGE("xenopixel", "Could not find 0x1801 service (status=%d, count=%d)", status, svc_count);
+              return;
+            }
+            ESP_LOGI("xenopixel", "Found 0x1801 service: handles %d-%d", svc_result.start_handle, svc_result.end_handle);
+
+            // Step 2: Find 0x2A05 characteristic within the service
+            esp_bt_uuid_t char_uuid;
+            char_uuid.len = ESP_UUID_LEN_16;
+            char_uuid.uuid.uuid16 = 0x2A05;
+            uint16_t char_count = 1;
+            esp_gattc_char_elem_t char_result;
+            status = esp_ble_gattc_get_char_by_uuid(gattc_if, conn_id,
+              svc_result.start_handle, svc_result.end_handle,
+              char_uuid, &char_result, &char_count);
+            if (status != ESP_OK || char_count == 0) {
+              ESP_LOGE("xenopixel", "Could not find 0x2A05 characteristic (status=%d, count=%d)", status, char_count);
+              return;
+            }
+            uint16_t char_handle = char_result.char_handle;
+            ESP_LOGI("xenopixel", "Found 0x2A05 at handle %d (props=0x%02x)", char_handle, char_result.properties);
+
+            // Step 3: Find CCCD descriptor (0x2902) for this characteristic
+            esp_bt_uuid_t descr_uuid;
+            descr_uuid.len = ESP_UUID_LEN_16;
+            descr_uuid.uuid.uuid16 = ESP_GATT_UUID_CHAR_CLIENT_CONFIG;  // 0x2902
+            uint16_t descr_count = 1;
+            esp_gattc_descr_elem_t descr_result;
+            status = esp_ble_gattc_get_descr_by_char_handle(gattc_if, conn_id,
+              char_handle, descr_uuid, &descr_result, &descr_count);
+            if (status != ESP_OK || descr_count == 0) {
+              ESP_LOGE("xenopixel", "Could not find CCCD for 0x2A05 (status=%d, count=%d)", status, descr_count);
+              return;
+            }
+            uint16_t cccd_handle = descr_result.handle;
+            ESP_LOGI("xenopixel", "Found CCCD at handle %d", cccd_handle);
+
+            // Step 4: Register local callback for indications
+            esp_ble_gattc_register_for_notify(gattc_if, id(saber_ble).get_remote_bda(), char_handle);
+
+            // Step 5: Write 0x0200 (indication enable) to the CCCD
+            uint8_t indicate_val[] = {0x02, 0x00};
+            esp_err_t err = esp_ble_gattc_write_char_descr(
+              gattc_if, conn_id, cccd_handle,
+              sizeof(indicate_val), indicate_val,
+              ESP_GATT_WRITE_TYPE_RSP, ESP_GATT_AUTH_REQ_NONE
+            );
+            if (err == ESP_OK) {
+              ESP_LOGI("xenopixel", "Wrote indicate-enable to CCCD handle %d", cccd_handle);
+            } else {
+              ESP_LOGE("xenopixel", "Failed to write CCCD: %d", err);
+            }
+        - delay: 500ms
+        - logger.log: "Sending HandShake to DAE1..."
+        - ble_client.ble_write:
+            id: saber_ble
+            service_uuid: "0000dae0-0000-1000-8000-00805f9b34fb"
+            characteristic_uuid: "0000dae1-0000-1000-8000-00805f9b34fb"
+            # [2,{"HandShake":"HelloDamien"}]
+            value: [0x5B, 0x32, 0x2C, 0x7B, 0x22, 0x48, 0x61, 0x6E, 0x64, 0x53, 0x68, 0x61, 0x6B, 0x65, 0x22, 0x3A, 0x22, 0x48, 0x65, 0x6C, 0x6C, 0x6F, 0x44, 0x61, 0x6D, 0x69, 0x65, 0x6E, 0x22, 0x7D, 0x5D]
+        - delay: 200ms
+        - logger.log: "Sending Authorize to 3AB1..."
+        - ble_client.ble_write:
+            id: saber_ble
+            service_uuid: "00003ab0-0000-1000-8000-00805f9b34fb"
+            characteristic_uuid: "00003ab1-0000-1000-8000-00805f9b34fb"
+            # [2,{"Authorize":"SaberOfDamien"}]
+            value: [0x5B, 0x32, 0x2C, 0x7B, 0x22, 0x41, 0x75, 0x74, 0x68, 0x6F, 0x72, 0x69, 0x7A, 0x65, 0x22, 0x3A, 0x22, 0x53, 0x61, 0x62, 0x65, 0x72, 0x4F, 0x66, 0x44, 0x61, 0x6D, 0x69, 0x65, 0x6E, 0x22, 0x7D, 0x5D]
+        - logger.log: "Waiting for saber authorization..."
+    on_disconnect:
+      then:
+        - logger.log: "BLE Disconnected from saber"
+        - binary_sensor.template.publish:
+            id: saber_connected
+            state: OFF
+        - globals.set:
+            id: saber_authorized
+            value: 'false'
+        - globals.set:
+            id: saber_blade_on
+            value: 'false'
+
+# BLE notification subscriptions - CRITICAL for saber to accept commands
+# The saber requires notifications to be enabled (CCCD write) before
+# it will process any commands. These text_sensors trigger that automatically.
+#
+# Authorization flow:
+#   1. Connect + enable notifications
+#   2. Saber sends status dump on DAE1
+#   3. Saber sends [3,{"Authorize":"AccessAllowed"}] on 3AB1
+#   4. Only THEN does the saber accept commands
+text_sensor:
+  - platform: ble_client
+    ble_client_id: saber_ble
+    id: saber_notify_3ab1
+    name: "${friendly_name} BLE Notify 3AB1"
+    internal: true
+    service_uuid: "00003ab0-0000-1000-8000-00805f9b34fb"
+    characteristic_uuid: "00003ab1-0000-1000-8000-00805f9b34fb"
+    notify: true
+    on_value:
+      then:
+        - lambda: |-
+            ESP_LOGI("xenopixel", "Notify 3AB1: %s", x.c_str());
+            // Check for authorization
+            if (x.find("AccessAllowed") != std::string::npos) {
+              ESP_LOGI("xenopixel", "*** SABER AUTHORIZED! Commands now accepted ***");
+              id(saber_authorized) = true;
+            }
+
+  - platform: ble_client
+    ble_client_id: saber_ble
+    id: saber_notify_dae1
+    name: "${friendly_name} BLE Notify DAE1"
+    internal: true
+    service_uuid: "0000dae0-0000-1000-8000-00805f9b34fb"
+    characteristic_uuid: "0000dae1-0000-1000-8000-00805f9b34fb"
+    notify: true
+    on_value:
+      then:
+        - lambda: |-
+            ESP_LOGI("xenopixel", "Notify DAE1: %s", x.c_str());
+            // Set flag to prevent feedback loops when updating number entities
+            id(syncing_from_notification) = true;
+            // Parse JSON notification to sync state
+            // Format: [3,{...params...}]
+            std::string json_str = x;
+            // Find the opening brace of the params object
+            auto brace_start = json_str.find('{');
+            auto brace_end = json_str.rfind('}');
+            if (brace_start == std::string::npos || brace_end == std::string::npos) return;
+            std::string params = json_str.substr(brace_start, brace_end - brace_start + 1);
+
+            // Parse PowerOn
+            auto power_on_pos = params.find("\"PowerOn\":");
+            if (power_on_pos != std::string::npos) {
+              bool blade_on = params.find("true", power_on_pos) < params.find(",", power_on_pos + 10);
+              id(saber_blade_on) = blade_on;
+              id(saber_blade).publish_state(blade_on);
+              ESP_LOGI("xenopixel", "State sync: blade %s", blade_on ? "ON" : "OFF");
+            }
+
+            // Parse Power (battery level)
+            auto power_pos = params.find("\"Power\":");
+            if (power_pos != std::string::npos) {
+              int val = atoi(params.c_str() + power_pos + 8);
+              id(saber_battery) = val;
+              id(saber_battery_sensor).publish_state(val);
+              ESP_LOGI("xenopixel", "State sync: battery %d%%", val);
+            }
+
+            // Parse Brightness
+            auto brightness_pos = params.find("\"Brightness\":");
+            if (brightness_pos != std::string::npos) {
+              int val = atoi(params.c_str() + brightness_pos + 13);
+              auto call = id(saber_brightness).make_call();
+              call.set_value(val);
+              call.perform();
+              ESP_LOGI("xenopixel", "State sync: brightness %d", val);
+            }
+
+            // Parse BackgroundColor
+            auto color_pos = params.find("\"BackgroundColor\":[");
+            if (color_pos != std::string::npos) {
+              int r = 0, g = 0, b = 0;
+              sscanf(params.c_str() + color_pos + 19, "%d,%d,%d", &r, &g, &b);
+              auto call_r = id(saber_red).make_call();
+              call_r.set_value(r);
+              call_r.perform();
+              auto call_g = id(saber_green).make_call();
+              call_g.set_value(g);
+              call_g.perform();
+              auto call_b = id(saber_blue).make_call();
+              call_b.set_value(b);
+              call_b.perform();
+              ESP_LOGI("xenopixel", "State sync: color [%d,%d,%d]", r, g, b);
+            }
+
+            // Parse Volume
+            auto volume_pos = params.find("\"Volume\":");
+            if (volume_pos != std::string::npos) {
+              int val = atoi(params.c_str() + volume_pos + 9);
+              auto call = id(saber_volume).make_call();
+              call.set_value(val);
+              call.perform();
+              ESP_LOGI("xenopixel", "State sync: volume %d", val);
+            }
+
+            // Parse CurrentSoundPackageNo
+            auto font_pos = params.find("\"CurrentSoundPackageNo\":");
+            if (font_pos != std::string::npos) {
+              int val = atoi(params.c_str() + font_pos + 23);
+              auto call = id(saber_sound_font).make_call();
+              call.set_value(val);
+              call.perform();
+              ESP_LOGI("xenopixel", "State sync: sound font %d", val);
+            }
+
+            // Parse CurrentLightEffect
+            auto effect_pos = params.find("\"CurrentLightEffect\":");
+            if (effect_pos != std::string::npos) {
+              int val = atoi(params.c_str() + effect_pos + 21);
+              auto call = id(saber_light_effect).make_call();
+              call.set_value(val);
+              call.perform();
+              ESP_LOGI("xenopixel", "State sync: light effect %d", val);
+            }
+
+            // Parse HardwareVersion
+            auto hw_pos = params.find("\"HardwareVersion\":\"");
+            if (hw_pos != std::string::npos) {
+              auto hw_start = hw_pos + 19;
+              auto hw_end = params.find("\"", hw_start);
+              if (hw_end != std::string::npos) {
+                id(saber_hw_version) = params.substr(hw_start, hw_end - hw_start);
+                id(saber_hw_version_sensor).publish_state(id(saber_hw_version));
+              }
+            }
+
+            // Parse SoftwareVersion
+            auto sw_pos = params.find("\"SoftwareVersion\":\"");
+            if (sw_pos != std::string::npos) {
+              auto sw_start = sw_pos + 19;
+              auto sw_end = params.find("\"", sw_start);
+              if (sw_end != std::string::npos) {
+                id(saber_sw_version) = params.substr(sw_start, sw_end - sw_start);
+                id(saber_sw_version_sensor).publish_state(id(saber_sw_version));
+              }
+            }
+
+            // Clear flag after all updates
+            id(syncing_from_notification) = false;
+
+  # Version sensors (populated from DAE1 notifications)
+  - platform: template
+    name: "${friendly_name} Hardware Version"
+    id: saber_hw_version_sensor
+    icon: "mdi:chip"
+
+  - platform: template
+    name: "${friendly_name} Software Version"
+    id: saber_sw_version_sensor
+    icon: "mdi:tag"
+
+# Connection status
+binary_sensor:
+  - platform: template
+    name: "${friendly_name} Connected"
+    id: saber_connected
+    device_class: connectivity
+
+  - platform: template
+    name: "${friendly_name} Authorized"
+    id: saber_auth_sensor
+    lambda: 'return id(saber_authorized);'
+
+# Battery sensor (populated from DAE1 notifications)
+sensor:
+  - platform: template
+    name: "${friendly_name} Battery"
+    id: saber_battery_sensor
+    unit_of_measurement: "%"
+    device_class: battery
+    state_class: measurement
+    accuracy_decimals: 0
+    lambda: 'return id(saber_battery);'
+
+# Power control switch (notification-driven state, not optimistic)
+switch:
+  - platform: template
+    name: "${friendly_name} Blade"
+    id: saber_blade
+    icon: "mdi:sword"
+    lambda: 'return id(saber_blade_on);'
+    restore_mode: ALWAYS_OFF
+    turn_on_action:
+      - if:
+          condition:
+            lambda: 'return id(saber_authorized);'
+          then:
+            - logger.log: "Turning blade ON"
+            - ble_client.ble_write:
+                id: saber_ble
+                service_uuid: "00003ab0-0000-1000-8000-00805f9b34fb"
+                characteristic_uuid: "00003ab1-0000-1000-8000-00805f9b34fb"
+                value: [0x5B, 0x32, 0x2C, 0x7B, 0x22, 0x50, 0x6F, 0x77, 0x65, 0x72, 0x4F, 0x6E, 0x22, 0x3A, 0x74, 0x72, 0x75, 0x65, 0x7D, 0x5D]
+                # [2,{"PowerOn":true}]
+            - logger.log: "Blade ON command sent"
+          else:
+            - logger.log:
+                level: WARN
+                format: "Cannot turn on blade - saber not authorized yet!"
+    turn_off_action:
+      - if:
+          condition:
+            lambda: 'return id(saber_authorized);'
+          then:
+            - logger.log: "Turning blade OFF"
+            - ble_client.ble_write:
+                id: saber_ble
+                service_uuid: "00003ab0-0000-1000-8000-00805f9b34fb"
+                characteristic_uuid: "00003ab1-0000-1000-8000-00805f9b34fb"
+                value: [0x5B, 0x32, 0x2C, 0x7B, 0x22, 0x50, 0x6F, 0x77, 0x65, 0x72, 0x4F, 0x6E, 0x22, 0x3A, 0x66, 0x61, 0x6C, 0x73, 0x65, 0x7D, 0x5D]
+                # [2,{"PowerOn":false}]
+            - logger.log: "Blade OFF command sent"
+          else:
+            - logger.log:
+                level: WARN
+                format: "Cannot turn off blade - saber not authorized yet!"
+
+# Number inputs
+number:
+  # Color inputs (0-255)
+  - platform: template
+    name: "${friendly_name} Red"
+    id: saber_red
+    icon: "mdi:palette"
+    min_value: 0
+    max_value: 255
+    step: 1
+    initial_value: 255
+    optimistic: true
+    set_action:
+      - if:
+          condition:
+            lambda: 'return id(saber_authorized) && !id(syncing_from_notification);'
+          then:
+            - script.execute: send_color
+
+  - platform: template
+    name: "${friendly_name} Green"
+    id: saber_green
+    icon: "mdi:palette"
+    min_value: 0
+    max_value: 255
+    step: 1
+    initial_value: 0
+    optimistic: true
+    set_action:
+      - if:
+          condition:
+            lambda: 'return id(saber_authorized) && !id(syncing_from_notification);'
+          then:
+            - script.execute: send_color
+
+  - platform: template
+    name: "${friendly_name} Blue"
+    id: saber_blue
+    icon: "mdi:palette"
+    min_value: 0
+    max_value: 255
+    step: 1
+    initial_value: 0
+    optimistic: true
+    set_action:
+      - if:
+          condition:
+            lambda: 'return id(saber_authorized) && !id(syncing_from_notification);'
+          then:
+            - script.execute: send_color
+
+  - platform: template
+    name: "${friendly_name} Brightness"
+    id: saber_brightness
+    icon: "mdi:brightness-6"
+    min_value: 0
+    max_value: 100
+    step: 1
+    initial_value: 100
+    optimistic: true
+    set_action:
+      - if:
+          condition:
+            lambda: 'return id(saber_authorized) && !id(syncing_from_notification);'
+          then:
+            - ble_client.ble_write:
+                id: saber_ble
+                service_uuid: "00003ab0-0000-1000-8000-00805f9b34fb"
+                characteristic_uuid: "00003ab1-0000-1000-8000-00805f9b34fb"
+                value: !lambda |-
+                  int brightness = (int)x;
+                  char cmd[48];
+                  snprintf(cmd, sizeof(cmd), "[2,{\"Brightness\":%d}]", brightness);
+                  ESP_LOGI("xenopixel", "Sending brightness: %s", cmd);
+                  return std::vector<uint8_t>(cmd, cmd + strlen(cmd));
+
+  # Volume control (0-100)
+  - platform: template
+    name: "${friendly_name} Volume"
+    id: saber_volume
+    icon: "mdi:volume-high"
+    min_value: 0
+    max_value: 100
+    step: 1
+    initial_value: 50
+    optimistic: true
+    set_action:
+      - if:
+          condition:
+            lambda: 'return id(saber_authorized) && !id(syncing_from_notification);'
+          then:
+            - ble_client.ble_write:
+                id: saber_ble
+                service_uuid: "00003ab0-0000-1000-8000-00805f9b34fb"
+                characteristic_uuid: "00003ab1-0000-1000-8000-00805f9b34fb"
+                value: !lambda |-
+                  int volume = (int)x;
+                  char cmd[48];
+                  snprintf(cmd, sizeof(cmd), "[2,{\"Volume\":%d}]", volume);
+                  ESP_LOGI("xenopixel", "Sending volume: %s", cmd);
+                  return std::vector<uint8_t>(cmd, cmd + strlen(cmd));
+
+  # Sound font selection
+  - platform: template
+    name: "${friendly_name} Sound Font"
+    id: saber_sound_font
+    icon: "mdi:music-note"
+    min_value: 0
+    max_value: 50
+    step: 1
+    initial_value: 1
+    optimistic: true
+    set_action:
+      - if:
+          condition:
+            lambda: 'return id(saber_authorized) && !id(syncing_from_notification);'
+          then:
+            - ble_client.ble_write:
+                id: saber_ble
+                service_uuid: "00003ab0-0000-1000-8000-00805f9b34fb"
+                characteristic_uuid: "00003ab1-0000-1000-8000-00805f9b34fb"
+                value: !lambda |-
+                  int font = (int)x;
+                  char cmd[64];
+                  snprintf(cmd, sizeof(cmd), "[2,{\"CurrentSoundPackageNo\":%d}]", font);
+                  ESP_LOGI("xenopixel", "Sending sound font: %s", cmd);
+                  return std::vector<uint8_t>(cmd, cmd + strlen(cmd));
+
+  # Light effect selection
+  - platform: template
+    name: "${friendly_name} Light Effect"
+    id: saber_light_effect
+    icon: "mdi:lightning-bolt"
+    min_value: 0
+    max_value: 50
+    step: 1
+    initial_value: 0
+    optimistic: true
+    set_action:
+      - if:
+          condition:
+            lambda: 'return id(saber_authorized) && !id(syncing_from_notification);'
+          then:
+            - ble_client.ble_write:
+                id: saber_ble
+                service_uuid: "00003ab0-0000-1000-8000-00805f9b34fb"
+                characteristic_uuid: "00003ab1-0000-1000-8000-00805f9b34fb"
+                value: !lambda |-
+                  int effect = (int)x;
+                  char cmd[64];
+                  snprintf(cmd, sizeof(cmd), "[2,{\"CurrentLightEffect\":%d}]", effect);
+                  ESP_LOGI("xenopixel", "Sending light effect: %s", cmd);
+                  return std::vector<uint8_t>(cmd, cmd + strlen(cmd));
+
+# Scripts for sending commands
+script:
+  - id: send_color
+    mode: restart
+    then:
+      - delay: 100ms  # Debounce rapid changes
+      - ble_client.ble_write:
+          id: saber_ble
+          service_uuid: "00003ab0-0000-1000-8000-00805f9b34fb"
+          characteristic_uuid: "00003ab1-0000-1000-8000-00805f9b34fb"
+          value: !lambda |-
+            int r = (int)id(saber_red).state;
+            int g = (int)id(saber_green).state;
+            int b = (int)id(saber_blue).state;
+            char cmd[64];
+            snprintf(cmd, sizeof(cmd), "[2,{\"BackgroundColor\":[%d,%d,%d]}]", r, g, b);
+            ESP_LOGI("xenopixel", "Sending color: %s", cmd);
+            return std::vector<uint8_t>(cmd, cmd + strlen(cmd));
+
+
+# Buttons for preset colors
+button:
+  - platform: template
+    name: "${friendly_name} Red Preset"
+    icon: "mdi:palette"
+    on_press:
+      - number.set:
+          id: saber_red
+          value: 255
+      - number.set:
+          id: saber_green
+          value: 0
+      - number.set:
+          id: saber_blue
+          value: 0
+
+  - platform: template
+    name: "${friendly_name} Green Preset"
+    icon: "mdi:palette"
+    on_press:
+      - number.set:
+          id: saber_red
+          value: 0
+      - number.set:
+          id: saber_green
+          value: 255
+      - number.set:
+          id: saber_blue
+          value: 0
+
+  - platform: template
+    name: "${friendly_name} Blue Preset"
+    icon: "mdi:palette"
+    on_press:
+      - number.set:
+          id: saber_red
+          value: 0
+      - number.set:
+          id: saber_green
+          value: 0
+      - number.set:
+          id: saber_blue
+          value: 255
+
+  - platform: template
+    name: "${friendly_name} White Preset"
+    icon: "mdi:palette"
+    on_press:
+      - number.set:
+          id: saber_red
+          value: 255
+      - number.set:
+          id: saber_green
+          value: 255
+      - number.set:
+          id: saber_blue
+          value: 255
+
+  - platform: template
+    name: "${friendly_name} Reconnect BLE"
+    icon: "mdi:bluetooth-connect"
+    on_press:
+      - ble_client.connect: saber_ble
