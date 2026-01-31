@@ -33,6 +33,9 @@ uv run ruff format .
 # Type check
 uv run mypy custom_components/xenopixel
 
+# Code complexity (CI thresholds: CCN 15, length 100, args 6)
+uv run lizard custom_components/xenopixel/ -C 15 -L 100 -a 6 -w -i 0
+
 # ESPHome compile (requires esphome installed via uv tool)
 cd esphome && esphome compile xenopixel_simple.yaml
 

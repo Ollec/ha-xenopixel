@@ -66,3 +66,23 @@ jobs:
 
       - name: Run MyPy
         run: uv run mypy custom_components/xenopixel --ignore-missing-imports
+
+  complexity:
+    name: Code Complexity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install UV
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Run Lizard complexity check
+        run: uv run lizard custom_components/xenopixel/ -C 15 -L 100 -a 6 -w -i 0

@@ -1159,6 +1159,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "lizard" },
     { name = "mypy" },
     { name = "pre-commit" },
     { name = "pytest" },
@@ -1176,6 +1177,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "lizard", specifier = ">=1.17.0" },
     { name = "mypy", specifier = ">=1.15.0" },
     { name = "pre-commit", specifier = ">=4.0.0" },
     { name = "pytest", specifier = ">=9.0.0" },
@@ -1646,6 +1648,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/30/3a/7cd3a6bbf14a97ffdabedc73c6c74ab691317469e9e6dd03866f94173571/litellm-1.81.4.tar.gz", hash = "sha256:bd64fd4f11fe39c0c12fbb4a062c040bfb5c966f58717f38780d8a6b1e15169b", size = 13615134, upload-time = "2026-01-27T22:50:57.256Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/9c/98/3a29bf2381ffd6d67a7cab68ad668a43960e0eceadb785cb0f16127a27f7/litellm-1.81.4-py3-none-any.whl", hash = "sha256:be8ebc00ce08589a6851c88a2cb5fb399206844f31d107e37c9852013dd2333d", size = 11949804, upload-time = "2026-01-27T22:50:54.164Z" },
+]
+
+[[package]]
+name = "lizard"
+version = "1.20.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pathspec" },
+    { name = "pygments" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2d/5c/091de55d1baa3b13e6d2c8ca2ff33f12b28c2a90b3b6b199a83156f4ac53/lizard-1.20.0.tar.gz", hash = "sha256:81280ba1b5f54fd6d0ac444eed67ade9a237703034d82e81b14d8bb3b2a76466", size = 88133, upload-time = "2026-01-13T09:20:16.146Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8c/d0/e4c7f12924824fddf194b4aacbe767ab36a50c0b6be0bc2a200afc673c3e/lizard-1.20.0-py2.py3-none-any.whl", hash = "sha256:7c03c6731838b156cc098154a8554fc3a13dc77ebdf4e0d37ff9c2da5a17d573", size = 97144, upload-time = "2026-01-13T09:20:14.376Z" },
 ]
 
 [[package]]
