@@ -3,6 +3,7 @@
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz/)
 [![GitHub Release](https://img.shields.io/github/release/Ollec/ha-xenopixel.svg)](https://github.com/Ollec/ha-xenopixel/releases)
 [![License](https://img.shields.io/github/license/Ollec/ha-xenopixel.svg)](LICENSE)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/6c54069910ee45e9acf11e3a0ecc4fba)](https://app.codacy.com/gh/Ollec/ha-xenopixel/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 
 Control your Xenopixel V3 lightsabers via Bluetooth from Home Assistant.
 
