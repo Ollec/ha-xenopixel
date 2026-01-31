@@ -1,0 +1,4 @@
+---
+exclude_paths:
+  - "tests/cpp/mocks/**"
+  - "tests/cpp/test_*.cpp"

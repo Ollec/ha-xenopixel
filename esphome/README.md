@@ -200,6 +200,22 @@ automation:
 2. **Check signal** - Move ESP32 closer to router
 3. **Use 2.4GHz** - ESP32 doesn't support 5GHz WiFi
 
+## Custom Light Component
+
+The `components/xenopixel_light/` directory contains a custom ESPHome `LightOutput` that integrates with Home Assistant's native light entity system. Instead of ESPHome's default combined RGB output, this component sends separate BLE commands for power, brightness, and color to match the Xenopixel protocol.
+
+Key behaviors:
+- **Redundancy checks** — Skips BLE writes when the value hasn't changed
+- **Color debouncing** — Suppresses rapid color changes (100ms minimum interval)
+- **Brightness recovery** — ESPHome bakes brightness into RGB values; the component divides it back out to send correct raw color values to the saber
+- **Guard conditions** — Blocks all commands while syncing from saber notifications or before authorization completes
+
+The component is tested with 18 host-based C++ unit tests (GoogleTest) in `tests/cpp/`. These tests use mock stubs for all ESPHome and ESP-IDF types, so no ESP32 hardware is required:
+
+```bash
+cd tests/cpp && cmake -B build && cmake --build build && ctest --test-dir build --output-on-failure
+```
+
 ## Protocol Reference
 
 ### Authorization (sent automatically on connect)

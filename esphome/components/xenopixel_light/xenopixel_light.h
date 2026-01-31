@@ -29,68 +29,85 @@ class XenopixelLight : public Component, public light::LightOutput {
   }
 
   void write_state(light::LightState *state) override {
-    // Don't send BLE commands when syncing from saber notifications
-    if (syncing_global_ != nullptr && syncing_global_->value()) return;
-    // Don't send BLE commands when not authorized
-    if (authorized_global_ == nullptr || !authorized_global_->value()) return;
+    if (!is_ready_for_commands_()) return;
 
     bool is_on = state->current_values.is_on();
+    float brightness = state->current_values.get_brightness();
     float r, g, b;
     state->current_values.as_rgb(&r, &g, &b);
-    // as_rgb() bakes brightness in; recover raw color by dividing out brightness
-    float brightness = state->current_values.get_brightness();
-    if (brightness > 0.0f && is_on) {
-      r /= brightness;
-      g /= brightness;
-      b /= brightness;
-      // Clamp in case of floating point overshoot
-      if (r > 1.0f) r = 1.0f;
-      if (g > 1.0f) g = 1.0f;
-      if (b > 1.0f) b = 1.0f;
-    }
+    recover_rgb_(&r, &g, &b, brightness, is_on);
 
-    int r_val = (int)(r * 255.0f);
-    int g_val = (int)(g * 255.0f);
-    int b_val = (int)(b * 255.0f);
-    int br_val = (int)(brightness * 100.0f);
-
-    // Power on/off
-    if (is_on != last_on_) {
-      send_command_(is_on ? "[2,{\"PowerOn\":true}]"
-                          : "[2,{\"PowerOn\":false}]");
-      last_on_ = is_on;
-    }
-
+    send_power_if_changed_(is_on);
     if (!is_on) return;
 
-    // Brightness
-    if (br_val != last_brightness_) {
-      char cmd[48];
-      snprintf(cmd, sizeof(cmd), "[2,{\"Brightness\":%d}]", br_val);
-      send_command_(cmd);
-      last_brightness_ = br_val;
-    }
-
-    // Color (debounced)
-    if (r_val != last_r_ || g_val != last_g_ || b_val != last_b_) {
-      uint32_t now = millis();
-      if (now - last_color_send_ms_ >= 100) {
-        char cmd[64];
-        snprintf(cmd, sizeof(cmd), "[2,{\"BackgroundColor\":[%d,%d,%d]}]",
-                 r_val, g_val, b_val);
-        send_command_(cmd);
-        last_r_ = r_val;
-        last_g_ = g_val;
-        last_b_ = b_val;
-        last_color_send_ms_ = now;
-      }
-    }
+    send_brightness_if_changed_((int)(brightness * 100.0f));
+    send_color_if_changed_((int)(r * 255.0f), (int)(g * 255.0f),
+                           (int)(b * 255.0f));
   }
 
   void reset_handle() { char_handle_ = 0; }
 
  protected:
+  bool is_ready_for_commands_() {
+    if (syncing_global_ != nullptr && syncing_global_->value()) return false;
+    if (authorized_global_ == nullptr || !authorized_global_->value())
+      return false;
+    return true;
+  }
+
+  // as_rgb() bakes brightness in; recover raw color by dividing it out
+  static void recover_rgb_(float *r, float *g, float *b, float brightness,
+                           bool is_on) {
+    if (brightness > 0.0f && is_on) {
+      *r /= brightness;
+      *g /= brightness;
+      *b /= brightness;
+      clamp_float_(r);
+      clamp_float_(g);
+      clamp_float_(b);
+    }
+  }
+
+  static void clamp_float_(float *v) {
+    if (*v > 1.0f) *v = 1.0f;
+  }
+
+  void send_power_if_changed_(bool is_on) {
+    if (is_on != last_on_) {
+      send_command_(is_on ? "[2,{\"PowerOn\":true}]"
+                          : "[2,{\"PowerOn\":false}]");
+      last_on_ = is_on;
+    }
+  }
+
+  void send_brightness_if_changed_(int br_val) {
+    if (br_val != last_brightness_) {
+      char cmd[48];
+      int len = snprintf(cmd, sizeof(cmd), "[2,{\"Brightness\":%d}]", br_val);
+      send_command_(cmd, len);
+      last_brightness_ = br_val;
+    }
+  }
+
+  void send_color_if_changed_(int r, int g, int b) {
+    if (r == last_r_ && g == last_g_ && b == last_b_) return;
+    uint32_t now = millis();
+    if (now - last_color_send_ms_ < 100) return;
+    char cmd[64];
+    int len = snprintf(cmd, sizeof(cmd),
+                       "[2,{\"BackgroundColor\":[%d,%d,%d]}]", r, g, b);
+    send_command_(cmd, len);
+    last_r_ = r;
+    last_g_ = g;
+    last_b_ = b;
+    last_color_send_ms_ = now;
+  }
+
   void send_command_(const char *cmd) {
+    send_command_(cmd, static_cast<int>(strlen(cmd)));
+  }
+
+  void send_command_(const char *cmd, int len) {
     if (ble_client_ == nullptr) return;
 
     // Cache the characteristic handle for performance
@@ -110,7 +127,7 @@ class XenopixelLight : public Component, public light::LightOutput {
     ESP_LOGI("xenopixel", "Light cmd: %s", cmd);
     auto status = esp_ble_gattc_write_char(
         ble_client_->get_gattc_if(), ble_client_->get_conn_id(), char_handle_,
-        strlen(cmd), (uint8_t *)cmd, ESP_GATT_WRITE_TYPE_NO_RSP,
+        len, (uint8_t *)cmd, ESP_GATT_WRITE_TYPE_NO_RSP,
         ESP_GATT_AUTH_REQ_NONE);
     if (status != ESP_OK) {
       ESP_LOGW("xenopixel", "BLE write failed: %d", status);

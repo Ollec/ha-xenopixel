@@ -63,8 +63,6 @@ jobs:
           cd tests/cpp
           lcov --capture --directory build --output-file coverage.info \
             --include '*/esphome/components/xenopixel_light/*'
-          lcov --remove coverage.info '*/googletest/*' '*/mocks/*' \
-            -o coverage.info
 
       - name: Upload C++ coverage artifact
         uses: actions/upload-artifact@v4

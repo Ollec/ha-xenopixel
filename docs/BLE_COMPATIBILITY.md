@@ -174,8 +174,12 @@ See the ESPHome configurations in the `esphome/` directory:
 
 ## Future Work
 
-1. **Create Home Assistant integration** - HACS-compatible native light entity using the Python protocol library
-2. **Document setup process** - Step-by-step guide with photos
+1. **Create Home Assistant integration** — HACS-compatible native light entity using the Python protocol library (in progress; protocol library and config flow implemented, light platform not yet wired up)
+2. **Document setup process** — Step-by-step guide with photos
+
+## Current State
+
+The ESPHome proxy approach is fully working. A custom `LightOutput` component (`esphome/components/xenopixel_light/`) provides native Home Assistant light entity support via the ESP32 proxy, with host-based C++ unit tests in `tests/cpp/`. Both Python and C++ test coverage are uploaded to Codacy as partial reports in CI.
 
 ---
 

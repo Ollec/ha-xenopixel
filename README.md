@@ -139,10 +139,13 @@ uv run ruff format --check .
 # Run type checking
 uv run mypy custom_components/xenopixel
 
-# Run tests
+# Run Python tests
 uv run pytest tests/ -v
 
-# Run all checks
+# Build and run C++ tests (for the ESPHome XenopixelLight component)
+cd tests/cpp && cmake -B build && cmake --build build && ctest --test-dir build --output-on-failure
+
+# Run all Python checks
 uv run ruff check . && uv run ruff format --check . && uv run pytest tests/ -v
 ```
 

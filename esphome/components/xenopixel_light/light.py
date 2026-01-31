@@ -1,8 +1,9 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import ble_client, light
 from esphome.components.globals import GlobalsComponent
 from esphome.const import CONF_OUTPUT_ID
+
+from esphome.components import ble_client, light
 
 DEPENDENCIES = ["ble_client"]
 
