@@ -5,9 +5,15 @@
 #include "esphome/components/globals/globals_component.h"
 #include "esphome/components/light/light_output.h"
 
+#ifndef UNIT_TEST
+#include <WiFiUdp.h>
+#include "esphome/components/wifi/wifi_component.h"
+#endif
+
 // Custom light output for Xenopixel sabers.
 // Sends separate BLE commands for power, color, and brightness
 // instead of the combined values that ESPHome's built-in RGB light uses.
+// Also receives WLED UDP sync packets when enabled.
 
 namespace esphome {
 namespace xenopixel_light {
@@ -22,14 +28,73 @@ class XenopixelLight : public Component, public light::LightOutput {
     syncing_global_ = g;
   }
 
+  void loop() override {
+#ifndef UNIT_TEST
+    if (!wled_udp_started_) {
+      if (wifi::global_wifi_component != nullptr &&
+          wifi::global_wifi_component->is_connected()) {
+        wled_udp_.begin(21324);
+        wled_udp_started_ = true;
+        ESP_LOGI("xenopixel", "WLED UDP listener started on port 21324");
+      }
+      return;
+    }
+    // Read all queued packets, keep only the latest
+    uint8_t buf[256];
+    int latest_len = 0;
+    int pkt_count = 0;
+    int pkt_size;
+    while ((pkt_size = wled_udp_.parsePacket()) > 0) {
+      if (pkt_size >= 6) {
+        latest_len = wled_udp_.read(buf, sizeof(buf));
+        pkt_count++;
+      }
+      wled_udp_.clear();
+    }
+    if (!wled_active_ || latest_len < 6) return;
+    if (pkt_count > 1) {
+      ESP_LOGD("xenopixel", "WLED: processed %d queued packets, applying latest",
+               pkt_count);
+    }
+    ESP_LOGI("xenopixel", "WLED pkt: bri=%d rgb=[%d,%d,%d]",
+             buf[2], buf[3], buf[4], buf[5]);
+    std::vector<uint8_t> data(buf, buf + latest_len);
+    apply_wled_packet(data);
+#endif
+  }
+
   light::LightTraits get_traits() override {
     auto traits = light::LightTraits();
     traits.set_supported_color_modes({light::ColorMode::RGB});
     return traits;
   }
 
+  void apply_wled_packet(const std::vector<uint8_t> &data) {
+    if (data.size() < 6 || data[0] != 0) return;
+
+    // Only check authorization, not syncing — WLED packets should not be
+    // blocked by the syncing_from_notification flag (that's for HA feedback)
+    if (authorized_global_ == nullptr || !authorized_global_->value()) return;
+
+    uint8_t wled_bri = data[2];
+    uint8_t r = data[3], g = data[4], b = data[5];
+
+    bool power_on = (wled_bri > 0);
+    send_power_if_changed_(power_on);
+    if (!power_on) return;
+
+    send_brightness_if_changed_((wled_bri * 100) / 255);
+    send_color_if_changed_(r, g, b);
+  }
+
+  void set_wled_active(bool active) {
+    wled_active_ = active;
+    ESP_LOGI("xenopixel", "WLED sync %s", active ? "enabled" : "disabled");
+  }
+
   void write_state(light::LightState *state) override {
     if (!is_ready_for_commands_()) return;
+    if (wled_active_) return;
 
     bool is_on = state->current_values.is_on();
     float brightness = state->current_values.get_brightness();
@@ -144,6 +209,11 @@ class XenopixelLight : public Component, public light::LightOutput {
   int last_b_{-1};
   int last_brightness_{-1};
   uint32_t last_color_send_ms_{0};
+  bool wled_active_{false};
+#ifndef UNIT_TEST
+  WiFiUDP wled_udp_;
+  bool wled_udp_started_{false};
+#endif
 };
 
 }  // namespace xenopixel_light

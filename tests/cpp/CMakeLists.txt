@@ -4,6 +4,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 # Coverage flags
 add_compile_options(--coverage -O0 -g)
+add_compile_definitions(UNIT_TEST)
 add_link_options(--coverage)
 
 # GoogleTest via FetchContent

@@ -5,7 +5,7 @@ from esphome.const import CONF_OUTPUT_ID
 
 from esphome.components import ble_client, light
 
-DEPENDENCIES = ["ble_client"]
+DEPENDENCIES = ["ble_client", "wifi"]
 
 xenopixel_light_ns = cg.esphome_ns.namespace("xenopixel_light")
 XenopixelLightOutput = xenopixel_light_ns.class_(

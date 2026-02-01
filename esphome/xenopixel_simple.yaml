@@ -44,6 +44,7 @@ ota:
 wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
+  power_save_mode: NONE  # Required for reliable UDP broadcast reception (WLED sync)
   ap:
     ssid: "${device_name} Fallback"
     password: !secret ap_password
@@ -469,11 +470,10 @@ number:
                   ESP_LOGI("xenopixel", "Sending light effect: %s", cmd);
                   return std::vector<uint8_t>(cmd, cmd + strlen(cmd));
 
-# Keepalive: periodically re-sends the current brightness to prevent saber DeepSleep.
-# Checks every second whether enough time has elapsed (based on configurable interval).
-# When the saber is out of BLE range, the connection drops and keepalives stop,
-# allowing the saber to enter DeepSleep naturally.
 interval:
+  # Keepalive: periodically re-sends the current brightness to prevent saber DeepSleep.
+  # When the saber is out of BLE range, the connection drops and keepalives stop,
+  # allowing the saber to enter DeepSleep naturally.
   - interval: 1s
     then:
       - lambda: |-
@@ -587,6 +587,21 @@ button:
 # Combat effects — toggled (Lockup and Drag stay active until turned off)
 # Confirmed via BLE notification capture: "Lockup":true/false, "Drag":true/false
 switch:
+  - platform: template
+    name: "${friendly_name} WLED Sync"
+    id: wled_sync_switch
+    icon: "mdi:sync"
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    turn_on_action:
+      - lambda: |-
+          auto *out = (xenopixel_light::XenopixelLight *)id(saber_light).get_output();
+          out->set_wled_active(true);
+    turn_off_action:
+      - lambda: |-
+          auto *out = (xenopixel_light::XenopixelLight *)id(saber_light).get_output();
+          out->set_wled_active(false);
+
   - platform: template
     name: "${friendly_name} Lockup"
     id: saber_lockup

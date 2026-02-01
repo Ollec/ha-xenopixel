@@ -17,6 +17,7 @@ Control your Xenopixel V3 lightsabers via Bluetooth from Home Assistant.
 - Light effect selection
 - Battery level monitoring
 - Hardware/software version reporting
+- WLED UDP sync (receive color/brightness from any WLED device on the network)
 - Notification-driven state sync (not optimistic)
 - Auto-discovery via Bluetooth
 
@@ -88,6 +89,7 @@ See [esphome/README.md](esphome/README.md) for the full entity list. Key entitie
 | `switch.xenopixel_saber_blade` | Switch | Blade on/off (notification-driven) |
 | `number.xenopixel_saber_*` | Number | Color, brightness, volume, sound font, light effect |
 | `sensor.xenopixel_saber_battery` | Sensor | Battery level (%) |
+| `switch.xenopixel_saber_wled_sync` | Switch | Enable/disable WLED UDP sync (default OFF) |
 
 ## Troubleshooting
 
@@ -107,6 +109,24 @@ See [esphome/README.md](esphome/README.md) for the full entity list. Key entitie
 ### Colors don't match
 
 The saber's LED strip may have different color ordering (RGB vs GRB). This will be addressed in future updates.
+
+## WLED Sync
+
+The saber can sync its color and brightness to any [WLED](https://kno.wled.ge/) device on the same network. This lets you match your lightsaber to room lighting, LED strips, or other WLED-controlled devices.
+
+### How it works
+
+1. Enable the **WLED Sync** switch in Home Assistant (default OFF)
+2. Configure your WLED device to broadcast sync packets (Settings > Sync Interfaces > "Send notifications on change")
+3. The ESP32 listens for WLED UDP notifier packets on port 21324 and applies the color/brightness to the saber
+
+When WLED Sync is ON, Home Assistant light controls are paused so WLED drives the saber exclusively. Turn the switch OFF to resume normal HA control.
+
+### Notes
+
+- WiFi power save is disabled on the ESP32 to ensure reliable UDP broadcast reception
+- The ESP32 shares a single 2.4GHz radio between WiFi and BLE, so occasional packet drops (~10%) are expected — the next broadcast will catch up
+- WLED only broadcasts when its state changes, not continuously
 
 ## Development
 

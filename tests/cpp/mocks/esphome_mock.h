@@ -19,6 +19,7 @@ constexpr int ESP_GATT_WRITE_TYPE_NO_RSP = 1;
 constexpr int ESP_GATT_AUTH_REQ_NONE = 0;
 
 // ── Logging macros (no-op) ──────────────────────────────────────────────────
+#define ESP_LOGD(tag, fmt, ...)
 #define ESP_LOGI(tag, fmt, ...)
 #define ESP_LOGW(tag, fmt, ...)
 #define ESP_LOGE(tag, fmt, ...)
@@ -54,9 +55,16 @@ inline esp_err_t esp_ble_gattc_write_char(esp_gatt_if_t, uint16_t conn_id,
 // ── ESPHome namespaces ──────────────────────────────────────────────────────
 namespace esphome {
 
+namespace setup_priority {
+constexpr float AFTER_WIFI = -10.0f;
+}
+
 class Component {
  public:
   virtual ~Component() = default;
+  virtual void setup() {}
+  virtual void loop() {}
+  virtual float get_setup_priority() const { return 0.0f; }
 };
 
 namespace esp32_ble_tracker {

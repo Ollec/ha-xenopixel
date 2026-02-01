@@ -280,3 +280,167 @@ TEST_F(XenopixelLightTest, SendCommand_HandlesNullCharacteristic) {
   // Characteristic lookup fails → no writes
   EXPECT_TRUE(g_ble_writes().empty());
 }
+
+// ── WLED sync ────────────────────────────────────────────────────────────────
+
+TEST_F(XenopixelLightTest, WLED_IgnoresShortPacket) {
+  std::vector<uint8_t> pkt = {0x00, 0x00, 0xFF, 0xFF, 0x00};  // only 5 bytes
+  light_.apply_wled_packet(pkt);
+  EXPECT_TRUE(g_ble_writes().empty());
+}
+
+TEST_F(XenopixelLightTest, WLED_IgnoresNonNotifierProtocol) {
+  std::vector<uint8_t> pkt = {0x01, 0x00, 0xFF, 0xFF, 0x00, 0x00};
+  light_.apply_wled_packet(pkt);
+  EXPECT_TRUE(g_ble_writes().empty());
+}
+
+TEST_F(XenopixelLightTest, WLED_SendsColorAndBrightness) {
+  // brightness=200, R=255, G=0, B=128
+  std::vector<uint8_t> pkt = {0x00, 0x00, 200, 255, 0, 128};
+  light_.apply_wled_packet(pkt);
+
+  ASSERT_GE(g_ble_writes().size(), 3u);
+  EXPECT_EQ(g_ble_writes()[0].data, "[2,{\"PowerOn\":true}]");
+  // 200*100/255 = 78
+  EXPECT_EQ(g_ble_writes()[1].data, "[2,{\"Brightness\":78}]");
+  EXPECT_EQ(g_ble_writes()[2].data, "[2,{\"BackgroundColor\":[255,0,128]}]");
+}
+
+TEST_F(XenopixelLightTest, WLED_BrightnessZeroTurnsOff) {
+  // First turn on so off is a change
+  std::vector<uint8_t> pkt_on = {0x00, 0x00, 128, 255, 0, 0};
+  light_.apply_wled_packet(pkt_on);
+  g_ble_writes().clear();
+
+  std::vector<uint8_t> pkt_off = {0x00, 0x00, 0, 0, 0, 0};
+  light_.apply_wled_packet(pkt_off);
+
+  ASSERT_FALSE(g_ble_writes().empty());
+  EXPECT_EQ(g_ble_writes()[0].data, "[2,{\"PowerOn\":false}]");
+  // No brightness or color commands after power off
+  for (size_t i = 1; i < g_ble_writes().size(); ++i) {
+    EXPECT_EQ(g_ble_writes()[i].data.find("Brightness"), std::string::npos);
+    EXPECT_EQ(g_ble_writes()[i].data.find("BackgroundColor"), std::string::npos);
+  }
+}
+
+TEST_F(XenopixelLightTest, WLED_WorksWhileSyncing) {
+  // syncing_from_notification should NOT block WLED packets
+  // (only authorization matters for WLED)
+  syncing_.value() = true;
+  std::vector<uint8_t> pkt = {0x00, 0x00, 200, 255, 0, 0};
+  light_.apply_wled_packet(pkt);
+  ASSERT_GE(g_ble_writes().size(), 3u);
+  EXPECT_EQ(g_ble_writes()[0].data, "[2,{\"PowerOn\":true}]");
+  EXPECT_EQ(g_ble_writes()[1].data, "[2,{\"Brightness\":78}]");
+  EXPECT_EQ(g_ble_writes()[2].data, "[2,{\"BackgroundColor\":[255,0,0]}]");
+}
+
+TEST_F(XenopixelLightTest, WLED_SkipsWhenNotAuthorized) {
+  authorized_.value() = false;
+  std::vector<uint8_t> pkt = {0x00, 0x00, 200, 255, 0, 0};
+  light_.apply_wled_packet(pkt);
+  EXPECT_TRUE(g_ble_writes().empty());
+}
+
+TEST_F(XenopixelLightTest, WLED_BlocksWriteState) {
+  light_.set_wled_active(true);
+  state_.current_values.set_state(true);
+  light_.write_state(&state_);
+  EXPECT_TRUE(g_ble_writes().empty());
+}
+
+TEST_F(XenopixelLightTest, WLED_BrightnessMapping) {
+  // Test boundary values: 1 → 0, 128 → 50, 255 → 100
+  std::vector<uint8_t> pkt = {0x00, 0x00, 1, 255, 255, 255};
+  light_.apply_wled_packet(pkt);
+  bool found = false;
+  for (const auto &w : g_ble_writes()) {
+    if (w.data.find("Brightness") != std::string::npos) {
+      EXPECT_EQ(w.data, "[2,{\"Brightness\":0}]");  // 1*100/255 = 0
+      found = true;
+    }
+  }
+  EXPECT_TRUE(found);
+
+  g_ble_writes().clear();
+  mock_millis_value() = 1200;  // advance past color debounce
+  pkt[2] = 128;
+  light_.apply_wled_packet(pkt);
+  for (const auto &w : g_ble_writes()) {
+    if (w.data.find("Brightness") != std::string::npos) {
+      EXPECT_EQ(w.data, "[2,{\"Brightness\":50}]");  // 128*100/255 = 50
+    }
+  }
+
+  g_ble_writes().clear();
+  mock_millis_value() = 1400;  // advance past color debounce
+  pkt[2] = 255;
+  light_.apply_wled_packet(pkt);
+  for (const auto &w : g_ble_writes()) {
+    if (w.data.find("Brightness") != std::string::npos) {
+      EXPECT_EQ(w.data, "[2,{\"Brightness\":100}]");  // 255*100/255 = 100
+    }
+  }
+}
+
+TEST_F(XenopixelLightTest, WLED_SkipsWhenAuthorizedNull) {
+  light_.set_authorized_global(nullptr);
+  std::vector<uint8_t> pkt = {0x00, 0x00, 200, 255, 0, 0};
+  light_.apply_wled_packet(pkt);
+  EXPECT_TRUE(g_ble_writes().empty());
+}
+
+TEST_F(XenopixelLightTest, WLED_IgnoresEmptyPacket) {
+  std::vector<uint8_t> pkt = {};
+  light_.apply_wled_packet(pkt);
+  EXPECT_TRUE(g_ble_writes().empty());
+}
+
+TEST_F(XenopixelLightTest, WLED_SkipsRedundantValues) {
+  // First packet: power on, brightness 78, color [255,0,0]
+  std::vector<uint8_t> pkt = {0x00, 0x00, 200, 255, 0, 0};
+  light_.apply_wled_packet(pkt);
+  ASSERT_EQ(g_ble_writes().size(), 3u);
+  g_ble_writes().clear();
+
+  // Same packet again — power, brightness, and color are all unchanged
+  mock_millis_value() = 1200;  // advance past color debounce
+  light_.apply_wled_packet(pkt);
+  EXPECT_TRUE(g_ble_writes().empty());
+}
+
+TEST_F(XenopixelLightTest, WLED_SharesStateWithWriteState) {
+  // write_state turns saber on — WLED should not re-send PowerOn
+  state_.current_values.set_state(true);
+  state_.current_values.set_brightness(1.0f);
+  state_.current_values.set_rgb(1.0f, 0.0f, 0.0f);
+  light_.write_state(&state_);
+  g_ble_writes().clear();
+
+  // WLED packet with same power state (on) — no PowerOn command expected
+  mock_millis_value() = 1200;  // advance past color debounce
+  std::vector<uint8_t> pkt = {0x00, 0x00, 200, 0, 255, 0};
+  light_.apply_wled_packet(pkt);
+
+  for (const auto &w : g_ble_writes()) {
+    EXPECT_EQ(w.data.find("PowerOn"), std::string::npos)
+        << "Unexpected PowerOn in: " << w.data;
+  }
+  // But brightness and color should change
+  EXPECT_GE(g_ble_writes().size(), 2u);
+}
+
+TEST_F(XenopixelLightTest, WLED_WriteStateWorksAfterDisable) {
+  // Enable WLED — write_state should be blocked
+  light_.set_wled_active(true);
+  state_.current_values.set_state(true);
+  light_.write_state(&state_);
+  EXPECT_TRUE(g_ble_writes().empty());
+
+  // Disable WLED — write_state should work again
+  light_.set_wled_active(false);
+  light_.write_state(&state_);
+  EXPECT_FALSE(g_ble_writes().empty());
+}

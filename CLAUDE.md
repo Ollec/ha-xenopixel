@@ -78,8 +78,9 @@ Two separate GATT services are used:
 
 ### ESPHome Proxy (`esphome/`)
 
-- `xenopixel_simple.yaml` — Active config. Uses switches, number inputs, and preset buttons. Contains the full authorization lambda in `on_connect` that uses ESP-IDF GATTC APIs directly to write the 0x2A05 CCCD. Includes volume, sound font, light effect controls and notification-driven state sync.
-- `components/xenopixel_light/xenopixel_light.h` — Custom ESPHome `LightOutput` component. Sends separate BLE commands for power, brightness, and color (instead of ESPHome's combined RGB values). Includes redundancy checks (skips unchanged values), color debouncing (100ms), brightness recovery (divides out ESPHome's baked-in brightness), and guard conditions (blocks commands while syncing or unauthorized).
+- `xenopixel_simple.yaml` — Active config. Uses switches, number inputs, and preset buttons. Contains the full authorization lambda in `on_connect` that uses ESP-IDF GATTC APIs directly to write the 0x2A05 CCCD. Includes volume, sound font, light effect controls, notification-driven state sync, and WLED UDP sync (receive broadcast packets on port 21324 to drive saber color/brightness). WiFi power save is disabled (`power_save_mode: NONE`) to ensure reliable UDP broadcast reception.
+- `components/xenopixel_light/xenopixel_light.h` — Custom ESPHome `LightOutput` component. Sends separate BLE commands for power, brightness, and color (instead of ESPHome's combined RGB values). Includes redundancy checks (skips unchanged values), color debouncing (100ms), brightness recovery (divides out ESPHome's baked-in brightness), guard conditions (blocks commands while syncing or unauthorized), and WLED UDP sync support (`apply_wled_packet()` parses WLED notifier protocol, `loop()` listens on port 21324 via `WiFiUDP` with lazy init after WiFi connects).
+- `components/xenopixel_light/light.py` — ESPHome code generation for the component. Depends on `ble_client` and `wifi`.
 - `secrets.yaml` — WiFi/API credentials (gitignored).
 
 ### Tools (`tools/`)
@@ -96,8 +97,8 @@ Two separate GATT services are used:
 
 - `mocks/esphome_mock.h` — Single header providing test doubles for `Component`, `LightOutput`, `BLEClient`, `GlobalsComponent`, and ESP-IDF BLE functions. A global `g_ble_writes()` vector captures all BLE write calls for assertion. A controllable `millis()` allows testing debounce logic.
 - `mocks/esphome/` — Stub headers that shadow real ESPHome `#include` paths so `xenopixel_light.h` compiles unmodified.
-- `test_xenopixel_light.cpp` — 18 test cases covering: traits declaration, guard conditions (syncing/authorization), power on/off commands, brightness, color with debounce, redundancy skipping, RGB recovery from brightness division, float clamping, handle caching/reset, and null safety.
-- `CMakeLists.txt` — Fetches GoogleTest v1.15.2 via `FetchContent`. Builds with `--coverage` flags for gcov/lcov instrumentation.
+- `test_xenopixel_light.cpp` — 31 test cases covering: traits declaration, guard conditions (syncing/authorization), power on/off commands, brightness, color with debounce, redundancy skipping, RGB recovery from brightness division, float clamping, handle caching/reset, null safety, and WLED sync (packet validation, brightness mapping, power off on zero brightness, authorization-only guard, syncing bypass, write_state blocking).
+- `CMakeLists.txt` — Fetches GoogleTest v1.15.2 via `FetchContent`. Builds with `--coverage` flags for gcov/lcov instrumentation. Defines `UNIT_TEST` to exclude platform-specific code (`WiFiUDP`, WiFi component) from host builds.
 
 **CI pipeline (`.github/workflows/tests.yaml`)** — Three jobs:
 1. `tests` — Python tests with coverage → uploads `coverage.xml` artifact
