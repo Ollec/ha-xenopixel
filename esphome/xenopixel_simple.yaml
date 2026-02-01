@@ -404,8 +404,8 @@ number:
     name: "${friendly_name} Sound Font"
     id: saber_sound_font
     icon: "mdi:music-note"
-    min_value: 0
-    max_value: 50
+    min_value: 1
+    max_value: 34
     step: 1
     initial_value: 1
     optimistic: true

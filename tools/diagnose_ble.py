@@ -14,8 +14,7 @@ Usage:
 from __future__ import annotations
 
 import asyncio
-import shlex
-import subprocess
+import subprocess  # noqa: S404 — used with fixed argument lists only
 
 from bleak import BleakClient
 
@@ -26,11 +25,11 @@ CHAR_CONTROL_UUID = "0000dae1-0000-1000-8000-00805f9b34fb"
 CHAR_CONTROL_ALT_UUID = "00003ab1-0000-1000-8000-00805f9b34fb"
 
 
-def run_cmd(cmd: str) -> str:
-    """Run shell command and return output."""
+def run_cmd(args: list[str]) -> str:
+    """Run command with fixed argument list and return output."""
     try:
-        result = subprocess.run(
-            shlex.split(cmd), capture_output=True, text=True, timeout=10
+        result = subprocess.run(  # noqa: S603
+            args, capture_output=True, text=True, timeout=10
         )
         return result.stdout.strip() or result.stderr.strip()
     except Exception as e:
@@ -47,29 +46,29 @@ def print_section(title: str) -> None:
 def diagnose_system_info() -> None:
     """Print system and BlueZ information."""
     print_section("System Information")
-    print(f"OS: {run_cmd('uname -a')}")
-    print(f"Kernel: {run_cmd('uname -r')}")
+    print(f"OS: {run_cmd(['uname', '-a'])}")
+    print(f"Kernel: {run_cmd(['uname', '-r'])}")
 
     print_section("BlueZ Information")
-    print(f"bluetoothd version: {run_cmd('bluetoothd --version')}")
-    print(f"BlueZ packages: {run_cmd('dpkg -l')}")
+    print(f"bluetoothd version: {run_cmd(['bluetoothd', '--version'])}")
+    print(f"BlueZ packages: {run_cmd(['dpkg', '-l'])}")
 
     print_section("Bluetooth Service")
-    print(f"Service status: {run_cmd('systemctl status bluetooth --no-pager -l')}")
+    print(f"Service status: {run_cmd(['systemctl', 'status', 'bluetooth', '--no-pager', '-l'])}")
 
 
 def diagnose_adapter_info() -> None:
     """Print Bluetooth adapter information."""
     print_section("Bluetooth Adapter")
-    print(f"hciconfig: {run_cmd('hciconfig -a')}")
-    print(f"\nbtmgmt info: {run_cmd('btmgmt info')}")
+    print(f"hciconfig: {run_cmd(['hciconfig', '-a'])}")
+    print(f"\nbtmgmt info: {run_cmd(['btmgmt', 'info'])}")
 
 
 def diagnose_pairing_state() -> None:
     """Print known device pairing state."""
     mac = KNOWN_MAC
     print_section(f"Device Pairing State ({mac})")
-    print(f"bluetoothctl info:\n{run_cmd('bluetoothctl info ' + mac)}")
+    print(f"bluetoothctl info:\n{run_cmd(['bluetoothctl', 'info', mac])}")
 
 
 async def diagnose_gatt() -> None:
@@ -155,7 +154,7 @@ def diagnose_dbus() -> None:
     print_section("D-Bus Device Properties")
     dbus_path = f"/org/bluez/hci0/dev_{KNOWN_MAC.replace(':', '_')}"
     print(f"D-Bus path: {dbus_path}")
-    print(f"Properties: {run_cmd('busctl introspect org.bluez ' + dbus_path)}")
+    print(f"Properties: {run_cmd(['busctl', 'introspect', 'org.bluez', dbus_path])}")
 
 
 def print_recommendations() -> None:

@@ -74,8 +74,12 @@ class XenopixelLight : public Component, public light::LightOutput {
 
   void send_power_if_changed_(bool is_on) {
     if (is_on != last_on_) {
-      send_command_(is_on ? "[2,{\"PowerOn\":true}]"
-                          : "[2,{\"PowerOn\":false}]");
+      static const char on_cmd[] = "[2,{\"PowerOn\":true}]";
+      static const char off_cmd[] = "[2,{\"PowerOn\":false}]";
+      if (is_on)
+        send_command_(on_cmd, sizeof(on_cmd) - 1);
+      else
+        send_command_(off_cmd, sizeof(off_cmd) - 1);
       last_on_ = is_on;
     }
   }
@@ -101,10 +105,6 @@ class XenopixelLight : public Component, public light::LightOutput {
     last_g_ = g;
     last_b_ = b;
     last_color_send_ms_ = now;
-  }
-
-  void send_command_(const char *cmd) {
-    send_command_(cmd, static_cast<int>(strlen(cmd)));
   }
 
   void send_command_(const char *cmd, int len) {
