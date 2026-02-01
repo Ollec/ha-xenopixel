@@ -2,21 +2,19 @@
 
 from __future__ import annotations
 
-from custom_components.xenopixel.const import (
+from lib.xenopixel_ble.const import (
+    AUTHORIZE_RESPONSE,
+    AUTHORIZE_VALUE,
     CHAR_CONTROL_ALT_UUID,
     CHAR_CONTROL_UUID,
     DOMAIN,
-    SERVICE_UUID,
-    SERVICE_UUID_ALT,
-)
-from custom_components.xenopixel.xenopixel_ble.const import (
-    AUTHORIZE_RESPONSE,
-    AUTHORIZE_VALUE,
     HANDSHAKE_VALUE,
     MSG_TYPE_COMMAND,
     MSG_TYPE_STATUS,
     PARAM_AUTHORIZE,
     PARAM_HANDSHAKE,
+    SERVICE_UUID,
+    SERVICE_UUID_ALT,
 )
 
 

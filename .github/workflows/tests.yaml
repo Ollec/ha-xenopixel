@@ -31,7 +31,7 @@ jobs:
       - name: Run tests with coverage
         run: |
           uv run pytest tests/ \
-            --cov=custom_components/xenopixel \
+            --cov=lib/xenopixel_ble \
             --cov=tools \
             --cov-report=xml \
             --cov-report=term-missing \

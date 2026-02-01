@@ -159,23 +159,22 @@ The ESP32's BLE stack (ESP-IDF/NimBLE):
 
 See the ESPHome configurations in the `esphome/` directory:
 
-- **[xenopixel_simple.yaml](../esphome/xenopixel_simple.yaml)** - Full ESPHome config with switches, number inputs, notification-driven state sync
+- **[xenopixel_1saber.yaml](../esphome/xenopixel_1saber.yaml)** / **[xenopixel_2sabers.yaml](../esphome/xenopixel_2sabers.yaml)** - ESPHome configs for single or dual saber setups
 
 ### Quick Start
 
 1. Get an ESP32 board (any variant with BLE)
 2. Install ESPHome: `pip install esphome`
 3. Create `secrets.yaml` with your WiFi credentials
-4. Update the `saber_mac` in the YAML file
-5. Compile and flash: `esphome run xenopixel_simple.yaml`
+4. Update saber MACs in `secrets.yaml`
+5. Compile and flash: `esphome run xenopixel_1saber.yaml`
 6. Add the ESPHome device to Home Assistant
 
 ---
 
 ## Future Work
 
-1. **Create Home Assistant integration** — HACS-compatible native light entity using the Python protocol library (in progress; protocol library and config flow implemented, light platform not yet wired up)
-2. **Document setup process** — Step-by-step guide with photos
+1. **Document setup process** — Step-by-step guide with photos
 
 ## Current State
 

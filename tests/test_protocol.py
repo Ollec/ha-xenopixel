@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from custom_components.xenopixel.xenopixel_ble.protocol import (
+from lib.xenopixel_ble.protocol import (
     XenopixelProtocol,
     XenopixelState,
 )

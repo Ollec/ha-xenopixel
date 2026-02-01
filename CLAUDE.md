@@ -4,10 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Home Assistant custom integration + ESPHome proxy for controlling Xenopixel V3 lightsabers via BLE. Two parallel approaches:
+ESPHome proxy for controlling Xenopixel V3 lightsabers via BLE. Uses an ESP32 as a BLE-to-WiFi bridge to work around Linux BlueZ CCCD compatibility issues.
 
-- **`custom_components/xenopixel/`** — Python-based HA integration using bleak (in development, light entity not yet implemented)
-- **`esphome/`** — ESP32 BLE-to-WiFi proxy configs that work today (workaround for Linux BlueZ CCCD issues)
+- **`esphome/`** — ESP32 BLE-to-WiFi proxy configs (the working product)
+- **`lib/xenopixel_ble/`** — Python BLE protocol library (encoder/decoder, constants, state management)
 
 ## Commands
 
@@ -19,7 +19,7 @@ uv sync --group dev
 uv run pytest
 
 # Run Python tests with coverage (CI enforces 80% minimum)
-uv run pytest --cov=custom_components/xenopixel --cov-report=term-missing --cov-fail-under=80
+uv run pytest --cov=lib/xenopixel_ble --cov-report=term-missing --cov-fail-under=80
 
 # Run a single test file
 uv run pytest tests/test_protocol.py -v
@@ -37,16 +37,18 @@ uv run ruff check .
 uv run ruff format .
 
 # Type check
-uv run mypy custom_components/xenopixel
+uv run mypy lib/xenopixel_ble
 
 # Code complexity (CI thresholds: CCN 15, length 100, args 6)
-uv run lizard custom_components/xenopixel/ -C 15 -L 100 -a 6 -w -i 0
+uv run lizard lib/xenopixel_ble/ -C 15 -L 100 -a 6 -w -i 0
 
 # ESPHome compile (requires esphome installed via uv tool)
-cd esphome && esphome compile xenopixel_simple.yaml
+cd esphome && esphome compile xenopixel_1saber.yaml
+cd esphome && esphome compile xenopixel_2sabers.yaml
 
 # ESPHome compile + flash
-cd esphome && esphome run xenopixel_simple.yaml
+cd esphome && esphome run xenopixel_1saber.yaml   # single saber
+cd esphome && esphome run xenopixel_2sabers.yaml   # dual sabers
 ```
 
 ## Architecture
@@ -69,27 +71,35 @@ Two separate GATT services are used:
 4. Send `[2,{"Authorize":"SaberOfDamien"}]` to **0x3AB1**
 5. Saber responds with full status dump on DAE1, then `[3,{"Authorize":"AccessAllowed"}]` on 3AB1
 
-### Python Integration (`custom_components/xenopixel/`)
+### Python BLE Protocol Library (`lib/xenopixel_ble/`)
 
-- `xenopixel_ble/protocol.py` — Encoder/decoder for all BLE commands and responses. `XenopixelProtocol` has static methods for each command. `XenopixelState` dataclass holds parsed device state.
-- `xenopixel_ble/const.py` — BLE UUIDs, message types, parameter names, authorization values.
-- `config_flow.py` — HA config flow with Bluetooth auto-discovery (scans for service UUID 0xDAE0).
-- `__init__.py` — Integration entry point. No platforms wired up yet.
+- `protocol.py` — Encoder/decoder for all BLE commands and responses. `XenopixelProtocol` has static methods for each command. `XenopixelState` dataclass holds parsed device state.
+- `const.py` — Domain, BLE UUIDs, message types, parameter names, authorization values.
+- `__init__.py` — Package entry point with clean re-exports.
 
 ### ESPHome Proxy (`esphome/`)
 
-- `xenopixel_simple.yaml` — Thin orchestrator config. Contains device settings, WiFi, shared infrastructure, WLED UDP listener, and `packages:` includes for each saber. WiFi power save is disabled (`power_save_mode: NONE`) to ensure reliable UDP broadcast reception.
+- `xenopixel_1saber.yaml` / `xenopixel_2sabers.yaml` — Top-level configs for single or dual saber setups. Each defines substitutions (`device_name`, `friendly_name`) and includes the shared base package plus the appropriate number of saber packages. Users compile the file matching their saber count.
+- `packages/base.yaml` — Shared infrastructure (ESPHome core, WiFi, API, OTA, BLE tracker, web server, captive portal). WiFi power save is disabled (`power_save_mode: NONE`) to ensure reliable UDP broadcast reception.
 - `packages/saber.yaml` — Per-saber template. Contains all entities for one saber (BLE client, authorization, sensors, light, numbers, buttons, switches). Uses `${saber_id}`, `${saber_name}`, `${saber_mac}` variables for text substitution via ESPHome's `packages:` with `vars:`.
-- `components/xenopixel_light/xenopixel_light.h` — Custom ESPHome `LightOutput` component. Sends separate BLE commands for power, brightness, and color (instead of ESPHome's combined RGB values). Includes redundancy checks (skips unchanged values), color debouncing (100ms), brightness recovery (divides out ESPHome's baked-in brightness), guard conditions (blocks commands while syncing or unauthorized), and WLED support (`apply_wled_packet()` parses WLED notifier protocol, `is_wled_active()` getter for external dispatch).
-- `components/xenopixel_light/light.py` — ESPHome code generation for the component. Depends on `ble_client`.
+- `components/xenopixel_light/xenopixel_light.h` — Custom ESPHome `LightOutput` component. Sends separate BLE commands for power, brightness, and color (instead of ESPHome's combined RGB values). Includes redundancy checks (skips unchanged values), color debouncing (100ms), brightness recovery (divides out ESPHome's baked-in brightness), guard conditions (blocks commands while syncing or unauthorized), and WLED UDP sync support (static shared UDP socket across all instances, generation counter ensures each instance processes each packet exactly once).
+- `components/xenopixel_light/light.py` — ESPHome code generation for the component. Depends on `ble_client` and `wifi`.
 - `secrets.yaml` — WiFi/API credentials and saber MAC addresses (gitignored).
 
 #### Multi-Saber Architecture
 
-The ESPHome config uses `packages:` with `vars:` (ESPHome 2025.3.0+) to support multiple sabers from a single ESP32. Each package include gets text substitution before C++ compilation:
+Separate top-level YAML files control how many sabers are compiled in — only real sabers get entities. Users pick the file matching their saber count at flash time:
+
+- `xenopixel_1saber.yaml` — includes base + 1 saber package
+- `xenopixel_2sabers.yaml` — includes base + 2 saber packages
+
+Adding a 3rd saber = create `xenopixel_3sabers.yaml` with a third package include. No conditional logic or Jinja needed.
+
+The ESPHome config uses `packages:` with `vars:` (ESPHome 2025.3.0+) for per-saber text substitution before C++ compilation:
 
 ```yaml
 packages:
+  base: !include packages/base.yaml
   saber1: !include
     file: packages/saber.yaml
     vars:
@@ -100,9 +110,17 @@ packages:
 
 Entity naming: IDs use `${saber_id}_<suffix>` (e.g., `saber1_light`), names use `"${friendly_name} ${saber_name} <Entity>"` (e.g., "Xenopixel Saber 1 Blade").
 
-WLED UDP sync uses a single listener in the main YAML that dispatches packets to all sabers with WLED active. Each saber has its own WLED Sync switch.
+WLED UDP sync is built into the component — a static shared UDP socket across all instances ensures each saber with WLED active receives packets. Each saber has its own WLED Sync switch. ESP32 supports up to 3 simultaneous GATT client connections.
 
-To add/remove sabers: add/remove a package block in `xenopixel_simple.yaml` and update the WLED dispatch lambda. ESP32 supports up to 3 simultaneous GATT client connections.
+#### WLED Sync — Protocol Details and Limitations
+
+The component listens on UDP port 21324 for WLED notifier packets (byte 0 = 0, byte 2 = brightness, bytes 3-5 = RGB). This is a best-effort sync:
+
+- **Solid colors** sync reliably. This is the intended use case — matching a saber to room lighting or themed scenes.
+- **Animated effects** are approximate. WLED's notifier protocol sends the segment's primary color on change, not the per-pixel rendered output every frame. The saber receives color updates only when the effect internally cycles the primary color.
+- **UDP packet loss** is inherent. The ESP32 shares one 2.4GHz radio between WiFi and BLE. Active GATT connections preempt WiFi, and UDP has no retransmission. Observed: ~10% loss with 1 saber, ~15-20% with 2.
+- **Keepalive is paused** during WLED sync (checked via `id(${saber_id}_wled_sync).state` in the keepalive lambda) to prevent the keepalive from overwriting WLED brightness with a stale cached value.
+- **3AB1 brightness sync** — the 3AB1 notification handler parses brightness confirmations and updates the ESPHome light entity, keeping the HA UI accurate and preventing stale values if WLED is later disabled.
 
 ### Tools (`tools/`)
 

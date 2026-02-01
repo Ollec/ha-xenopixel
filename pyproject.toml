@@ -1,14 +1,14 @@
 [project]
 name = "ha-xenopixel"
 version = "0.1.0"
-description = "Home Assistant integration for Xenopixel V3 lightsabers"
+description = "ESPHome proxy and BLE protocol library for Xenopixel V3 lightsabers"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.13.2"
 authors = [
     {name = "Ollec"}
 ]
-keywords = ["home-assistant", "bluetooth", "ble", "lightsaber", "xenopixel"]
+keywords = ["esphome", "bluetooth", "ble", "lightsaber", "xenopixel"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -17,14 +17,13 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 
-# Runtime dependencies (pinned versions, also listed in manifest.json)
+# Runtime dependencies
 dependencies = [
     "bleak==2.1.1",
     "bleak-retry-connector==4.4.4",
 ]
 
 # UV dependency groups (use: uv sync --group dev)
-# Note: pytest-homeassistant-custom-component pins homeassistant version, so don't pin HA separately
 [dependency-groups]
 dev = [
     "pytest>=9.0.0",
@@ -33,7 +32,6 @@ dev = [
     "ruff>=0.14.0",
     "mypy>=1.15.0",
     "pre-commit>=4.0.0",
-    "pytest-homeassistant-custom-component>=0.13.300",
     "lizard>=1.17.0",
 ]
 
@@ -48,7 +46,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["custom_components*"]
+include = ["lib*"]
 
 # Ruff configuration
 [tool.ruff]
@@ -78,7 +76,7 @@ ignore = [
 "tools/*" = ["ARG001", "ARG005", "E722", "F841", "SIM102", "SIM105"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["custom_components.xenopixel"]
+known-first-party = ["lib.xenopixel_ble"]
 
 # Ruff formatter (replaces Black)
 [tool.ruff.format]
@@ -104,10 +102,9 @@ show_error_codes = true
 module = [
     "bleak.*",
     "bleak_retry_connector.*",
-    "homeassistant.*",
-    "pytest_homeassistant_custom_component.*",
 ]
 ignore_missing_imports = true
+
 
 # Pytest configuration
 [tool.pytest.ini_options]
@@ -120,10 +117,9 @@ filterwarnings = [
 
 # Coverage configuration
 [tool.coverage.run]
-source = ["custom_components/xenopixel", "tools"]
+source = ["lib/xenopixel_ble", "tools"]
 branch = true
 omit = [
-    "custom_components/xenopixel/config_flow.py",
     "tools/test_saber.py",
 ]
 

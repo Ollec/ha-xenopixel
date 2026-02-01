@@ -7,26 +7,6 @@ on:
   pull_request:
 
 jobs:
-  validate-hassfest:
-    name: Hassfest
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
-
-      - name: Hassfest validation
-        uses: home-assistant/actions/hassfest@55b4a5d23e09d627c2773c2ef82afa98904d65b4 # master 2026-01-31
-
-  validate-hacs:
-    name: HACS
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
-
-      - name: HACS validation
-        uses: hacs/action@dcb30e72781db3f207d5236b861172774ab0b485 # main 2026-01-31
-        with:
-          category: integration
-
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -65,7 +45,7 @@ jobs:
         run: uv sync --group dev
 
       - name: Run MyPy
-        run: uv run mypy custom_components/xenopixel --ignore-missing-imports
+        run: uv run mypy lib/xenopixel_ble --ignore-missing-imports
 
   complexity:
     name: Code Complexity
@@ -85,4 +65,4 @@ jobs:
         run: uv sync --group dev
 
       - name: Run Lizard complexity check
-        run: uv run lizard custom_components/xenopixel/ -C 15 -L 100 -a 6 -w -i 0
+        run: uv run lizard lib/xenopixel_ble/ -C 15 -L 100 -a 6 -w -i 0

@@ -1,0 +1,16 @@
+# Xenopixel Lightsaber BLE Proxy — Single Saber
+# Configure saber MAC and name in secrets.yaml, then:
+#   esphome run xenopixel_1saber.yaml
+
+substitutions:
+  device_name: xenopixel-saber
+  friendly_name: "Xenopixel"
+
+packages:
+  base: !include packages/base.yaml
+  saber1: !include
+    file: packages/saber.yaml
+    vars:
+      saber_id: saber1
+      saber_name: !secret saber1_name
+      saber_mac: !secret saber1_mac

@@ -26,13 +26,4 @@ repos:
         additional_dependencies:
           - types-setuptools
         args: ["--ignore-missing-imports"]
-        files: ^custom_components/
-
-  - repo: local
-    hooks:
-      - id: check-manifest
-        name: Check manifest.json
-        entry: python -c "import json; json.load(open('custom_components/xenopixel/manifest.json'))"
-        language: python
-        files: manifest\.json$
-        pass_filenames: false
+        files: ^lib/

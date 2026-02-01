@@ -19,24 +19,9 @@ jobs:
         id: version
         run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
-      - name: Verify manifest version matches tag
-        run: |
-          MANIFEST_VERSION=$(python -c "import json; print(json.load(open('custom_components/xenopixel/manifest.json'))['version'])")
-          TAG_VERSION=${{ steps.version.outputs.version }}
-          if [ "$MANIFEST_VERSION" != "$TAG_VERSION" ]; then
-            echo "Error: manifest.json version ($MANIFEST_VERSION) does not match tag version ($TAG_VERSION)"
-            exit 1
-          fi
-
-      - name: Create release archive
-        run: |
-          cd custom_components
-          zip -r ../xenopixel-${{ steps.version.outputs.version }}.zip xenopixel
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2
         with:
-          files: xenopixel-${{ steps.version.outputs.version }}.zip
           generate_release_notes: true
           draft: false
           prerelease: ${{ contains(github.ref, 'beta') || contains(github.ref, 'alpha') }}

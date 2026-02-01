@@ -166,6 +166,17 @@ text_sensor:
               ESP_LOGI("xenopixel", "*** ${saber_name} AUTHORIZED! Commands now accepted ***");
               id(${saber_id}_authorized) = true;
             }
+            // Brightness confirmations arrive on 3AB1 — sync light entity
+            // so the HA UI and keepalive reflect the actual saber brightness
+            auto bri_pos = x.find("\"Brightness\":");
+            if (bri_pos != std::string::npos) {
+              int val = atoi(x.c_str() + bri_pos + 13);
+              id(${saber_id}_syncing) = true;
+              auto call = id(${saber_id}_light).make_call();
+              call.set_brightness((float)val / 100.0f);
+              call.perform();
+              id(${saber_id}_syncing) = false;
+            }
 
   - platform: ble_client
     ble_client_id: ${saber_id}_ble
@@ -427,6 +438,9 @@ interval:
           // 0 = disabled
           if (interval <= 0) return;
           if (!id(${saber_id}_authorized)) return;
+          // WLED packets keep the connection alive — skip keepalive to avoid
+          // overwriting WLED brightness with the stale light entity value
+          if (id(${saber_id}_wled_sync).state) return;
 
           uint32_t now = millis();
           if ((now - last_keepalive_ms) < (uint32_t)(interval * 1000)) return;
