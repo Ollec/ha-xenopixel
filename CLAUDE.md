@@ -78,10 +78,31 @@ Two separate GATT services are used:
 
 ### ESPHome Proxy (`esphome/`)
 
-- `xenopixel_simple.yaml` — Active config. Uses switches, number inputs, and preset buttons. Contains the full authorization lambda in `on_connect` that uses ESP-IDF GATTC APIs directly to write the 0x2A05 CCCD. Includes volume, sound font, light effect controls, notification-driven state sync, and WLED UDP sync (receive broadcast packets on port 21324 to drive saber color/brightness). WiFi power save is disabled (`power_save_mode: NONE`) to ensure reliable UDP broadcast reception.
-- `components/xenopixel_light/xenopixel_light.h` — Custom ESPHome `LightOutput` component. Sends separate BLE commands for power, brightness, and color (instead of ESPHome's combined RGB values). Includes redundancy checks (skips unchanged values), color debouncing (100ms), brightness recovery (divides out ESPHome's baked-in brightness), guard conditions (blocks commands while syncing or unauthorized), and WLED UDP sync support (`apply_wled_packet()` parses WLED notifier protocol, `loop()` listens on port 21324 via `WiFiUDP` with lazy init after WiFi connects).
-- `components/xenopixel_light/light.py` — ESPHome code generation for the component. Depends on `ble_client` and `wifi`.
-- `secrets.yaml` — WiFi/API credentials (gitignored).
+- `xenopixel_simple.yaml` — Thin orchestrator config. Contains device settings, WiFi, shared infrastructure, WLED UDP listener, and `packages:` includes for each saber. WiFi power save is disabled (`power_save_mode: NONE`) to ensure reliable UDP broadcast reception.
+- `packages/saber.yaml` — Per-saber template. Contains all entities for one saber (BLE client, authorization, sensors, light, numbers, buttons, switches). Uses `${saber_id}`, `${saber_name}`, `${saber_mac}` variables for text substitution via ESPHome's `packages:` with `vars:`.
+- `components/xenopixel_light/xenopixel_light.h` — Custom ESPHome `LightOutput` component. Sends separate BLE commands for power, brightness, and color (instead of ESPHome's combined RGB values). Includes redundancy checks (skips unchanged values), color debouncing (100ms), brightness recovery (divides out ESPHome's baked-in brightness), guard conditions (blocks commands while syncing or unauthorized), and WLED support (`apply_wled_packet()` parses WLED notifier protocol, `is_wled_active()` getter for external dispatch).
+- `components/xenopixel_light/light.py` — ESPHome code generation for the component. Depends on `ble_client`.
+- `secrets.yaml` — WiFi/API credentials and saber MAC addresses (gitignored).
+
+#### Multi-Saber Architecture
+
+The ESPHome config uses `packages:` with `vars:` (ESPHome 2025.3.0+) to support multiple sabers from a single ESP32. Each package include gets text substitution before C++ compilation:
+
+```yaml
+packages:
+  saber1: !include
+    file: packages/saber.yaml
+    vars:
+      saber_id: saber1
+      saber_name: !secret saber1_name
+      saber_mac: !secret saber1_mac
+```
+
+Entity naming: IDs use `${saber_id}_<suffix>` (e.g., `saber1_light`), names use `"${friendly_name} ${saber_name} <Entity>"` (e.g., "Xenopixel Saber 1 Blade").
+
+WLED UDP sync uses a single listener in the main YAML that dispatches packets to all sabers with WLED active. Each saber has its own WLED Sync switch.
+
+To add/remove sabers: add/remove a package block in `xenopixel_simple.yaml` and update the WLED dispatch lambda. ESP32 supports up to 3 simultaneous GATT client connections.
 
 ### Tools (`tools/`)
 
@@ -98,7 +119,7 @@ Two separate GATT services are used:
 - `mocks/esphome_mock.h` — Single header providing test doubles for `Component`, `LightOutput`, `BLEClient`, `GlobalsComponent`, and ESP-IDF BLE functions. A global `g_ble_writes()` vector captures all BLE write calls for assertion. A controllable `millis()` allows testing debounce logic.
 - `mocks/esphome/` — Stub headers that shadow real ESPHome `#include` paths so `xenopixel_light.h` compiles unmodified.
 - `test_xenopixel_light.cpp` — 31 test cases covering: traits declaration, guard conditions (syncing/authorization), power on/off commands, brightness, color with debounce, redundancy skipping, RGB recovery from brightness division, float clamping, handle caching/reset, null safety, and WLED sync (packet validation, brightness mapping, power off on zero brightness, authorization-only guard, syncing bypass, write_state blocking).
-- `CMakeLists.txt` — Fetches GoogleTest v1.15.2 via `FetchContent`. Builds with `--coverage` flags for gcov/lcov instrumentation. Defines `UNIT_TEST` to exclude platform-specific code (`WiFiUDP`, WiFi component) from host builds.
+- `CMakeLists.txt` — Fetches GoogleTest v1.15.2 via `FetchContent`. Builds with `--coverage` flags for gcov/lcov instrumentation. Defines `UNIT_TEST` to guard any platform-specific code from host builds.
 
 **CI pipeline (`.github/workflows/tests.yaml`)** — Three jobs:
 1. `tests` — Python tests with coverage → uploads `coverage.xml` artifact

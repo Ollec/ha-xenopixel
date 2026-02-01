@@ -120,10 +120,11 @@ filterwarnings = [
 
 # Coverage configuration
 [tool.coverage.run]
-source = ["custom_components/xenopixel"]
+source = ["custom_components/xenopixel", "tools"]
 branch = true
 omit = [
     "custom_components/xenopixel/config_flow.py",
+    "tools/test_saber.py",
 ]
 
 [tool.coverage.report]

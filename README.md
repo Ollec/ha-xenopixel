@@ -18,6 +18,7 @@ Control your Xenopixel V3 lightsabers via Bluetooth from Home Assistant.
 - Battery level monitoring
 - Hardware/software version reporting
 - WLED UDP sync (receive color/brightness from any WLED device on the network)
+- Multi-saber support (control 2+ sabers from a single ESP32)
 - Notification-driven state sync (not optimistic)
 - Auto-discovery via Bluetooth
 
@@ -80,16 +81,62 @@ BluetoothName = Saber_Living_Room
 Vol = 50
 ```
 
+## Multi-Saber Support
+
+The ESPHome proxy supports controlling multiple sabers from a single ESP32 (up to 3, the ESP32 default GATT client limit). Each saber gets its own set of entities in Home Assistant.
+
+### Configuration
+
+Edit `esphome/xenopixel_simple.yaml` to configure your sabers. Each saber is defined as a package:
+
+```yaml
+packages:
+  saber1: !include
+    file: packages/saber.yaml
+    vars:
+      saber_id: saber1
+      saber_name: !secret saber1_name
+      saber_mac: !secret saber1_mac
+  saber2: !include
+    file: packages/saber.yaml
+    vars:
+      saber_id: saber2
+      saber_name: !secret saber2_name
+      saber_mac: !secret saber2_mac
+```
+
+Configure your sabers in `esphome/secrets.yaml`:
+
+```yaml
+saber1_mac: "B0:CB:D8:DB:E1:AE"
+saber1_name: "Saber 1"
+saber2_mac: "AA:BB:CC:DD:EE:FF"
+saber2_name: "Saber 2"
+```
+
+### Adding/Removing Sabers
+
+- **Add a saber**: Add a new package block (e.g., `saber3`), add its secrets, and add a dispatch line in the WLED lambda
+- **Remove a saber**: Delete (or comment out) the package block AND its two WLED dispatch lines in the lambda
+- **Single saber**: Comment out the `saber2` package block AND the two `s2` lines in the WLED lambda — both changes are needed or the build will fail
+
 ## Entities Created (ESPHome Proxy)
 
-See [esphome/README.md](esphome/README.md) for the full entity list. Key entities:
+Each saber creates its own set of entities. For a saber named "Saber 1":
 
 | Entity | Type | Description |
 |--------|------|-------------|
-| `switch.xenopixel_saber_blade` | Switch | Blade on/off (notification-driven) |
-| `number.xenopixel_saber_*` | Number | Color, brightness, volume, sound font, light effect |
-| `sensor.xenopixel_saber_battery` | Sensor | Battery level (%) |
-| `switch.xenopixel_saber_wled_sync` | Switch | Enable/disable WLED UDP sync (default OFF) |
+| `light.xenopixel_saber_1_blade` | Light | Blade on/off, color, brightness |
+| `number.xenopixel_saber_1_volume` | Number | Volume control (0-100) |
+| `number.xenopixel_saber_1_sound_font` | Number | Sound font selection |
+| `number.xenopixel_saber_1_light_effect` | Number | Light effect selection |
+| `sensor.xenopixel_saber_1_battery` | Sensor | Battery level (%) |
+| `switch.xenopixel_saber_1_wled_sync` | Switch | Enable/disable WLED UDP sync |
+| `switch.xenopixel_saber_1_lockup` | Switch | Lockup effect toggle |
+| `switch.xenopixel_saber_1_drag` | Switch | Drag effect toggle |
+| `button.xenopixel_saber_1_clash` | Button | Trigger clash effect |
+| `button.xenopixel_saber_1_blaster` | Button | Trigger blaster effect |
+| `button.xenopixel_saber_1_force` | Button | Trigger force effect |
 
 ## Troubleshooting
 
@@ -125,14 +172,14 @@ When WLED Sync is ON, Home Assistant light controls are paused so WLED drives th
 ### Notes
 
 - WiFi power save is disabled on the ESP32 to ensure reliable UDP broadcast reception
-- The ESP32 shares a single 2.4GHz radio between WiFi and BLE, so occasional packet drops (~10%) are expected — the next broadcast will catch up
+- The ESP32 shares a single 2.4GHz radio between WiFi and BLE, so occasional packet drops (~10% with 1 saber, ~15-20% with 2) are expected — the next broadcast will catch up
 - WLED only broadcasts when its state changes, not continuously
+- Each saber has its own WLED Sync switch — you can sync one saber to WLED while controlling the other from HA
 
 ## Development
 
 This project uses [UV](https://docs.astral.sh/uv/) for fast, reliable dependency management.
 
-See [docs/DEVELOPMENT_PLAN.md](docs/DEVELOPMENT_PLAN.md) for the development roadmap.
 
 ### Setup
 

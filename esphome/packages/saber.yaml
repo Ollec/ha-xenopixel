@@ -1,0 +1,609 @@
+# Per-saber package template for Xenopixel lightsabers
+# Used via ESPHome packages with vars: saber_id, saber_name, saber_mac
+#
+# Example usage in main YAML:
+#   packages:
+#     saber1: !include
+#       file: packages/saber.yaml
+#       vars:
+#         saber_id: saber1
+#         saber_name: !secret saber1_name
+#         saber_mac: !secret saber1_mac
+
+# Global variables for state tracking (per saber)
+globals:
+  - id: ${saber_id}_authorized
+    type: bool
+    initial_value: 'false'
+  - id: ${saber_id}_battery
+    type: int
+    initial_value: '0'
+  - id: ${saber_id}_keepalive_interval_val
+    type: int
+    initial_value: '30'
+  - id: ${saber_id}_hw_version
+    type: std::string
+    initial_value: '""'
+  - id: ${saber_id}_sw_version
+    type: std::string
+    initial_value: '""'
+  - id: ${saber_id}_syncing
+    type: bool
+    initial_value: 'false'
+
+# BLE Client connection
+ble_client:
+  - mac_address: ${saber_mac}
+    id: ${saber_id}_ble
+    on_connect:
+      then:
+        - logger.log: "BLE Connected to ${saber_name}!"
+        - binary_sensor.template.publish:
+            id: ${saber_id}_connected
+            state: ON
+        - globals.set:
+            id: ${saber_id}_authorized
+            value: 'false'
+        - delay: 2s
+        - logger.log: "Enabling indications on Service Changed (0x2A05) for ${saber_name}..."
+        - lambda: |-
+            // The saber requires indications enabled on 0x2A05 (Service Changed)
+            // before it sends the authorization handshake.
+            //
+            // ESPHome's get_characteristic() only finds characteristics registered
+            // by child components (text_sensors etc). Since nothing references the
+            // 0x1801 service, we must use ESP-IDF GATTC cache APIs directly.
+            auto gattc_if = id(${saber_id}_ble).get_gattc_if();
+            auto conn_id = id(${saber_id}_ble).get_conn_id();
+
+            // Step 1: Find 0x1801 service in the ESP-IDF GATTC cache
+            esp_bt_uuid_t svc_uuid;
+            svc_uuid.len = ESP_UUID_LEN_16;
+            svc_uuid.uuid.uuid16 = 0x1801;
+            uint16_t svc_count = 1;
+            esp_gattc_service_elem_t svc_result;
+            auto status = esp_ble_gattc_get_service(gattc_if, conn_id, &svc_uuid, &svc_result, &svc_count, 0);
+            if (status != ESP_OK || svc_count == 0) {
+              ESP_LOGE("xenopixel", "${saber_name}: Could not find 0x1801 service (status=%d, count=%d)", status, svc_count);
+              return;
+            }
+            ESP_LOGI("xenopixel", "${saber_name}: Found 0x1801 service: handles %d-%d", svc_result.start_handle, svc_result.end_handle);
+
+            // Step 2: Find 0x2A05 characteristic within the service
+            esp_bt_uuid_t char_uuid;
+            char_uuid.len = ESP_UUID_LEN_16;
+            char_uuid.uuid.uuid16 = 0x2A05;
+            uint16_t char_count = 1;
+            esp_gattc_char_elem_t char_result;
+            status = esp_ble_gattc_get_char_by_uuid(gattc_if, conn_id,
+              svc_result.start_handle, svc_result.end_handle,
+              char_uuid, &char_result, &char_count);
+            if (status != ESP_OK || char_count == 0) {
+              ESP_LOGE("xenopixel", "${saber_name}: Could not find 0x2A05 characteristic (status=%d, count=%d)", status, char_count);
+              return;
+            }
+            uint16_t char_handle = char_result.char_handle;
+            ESP_LOGI("xenopixel", "${saber_name}: Found 0x2A05 at handle %d (props=0x%02x)", char_handle, char_result.properties);
+
+            // Step 3: Find CCCD descriptor (0x2902) for this characteristic
+            esp_bt_uuid_t descr_uuid;
+            descr_uuid.len = ESP_UUID_LEN_16;
+            descr_uuid.uuid.uuid16 = ESP_GATT_UUID_CHAR_CLIENT_CONFIG;  // 0x2902
+            uint16_t descr_count = 1;
+            esp_gattc_descr_elem_t descr_result;
+            status = esp_ble_gattc_get_descr_by_char_handle(gattc_if, conn_id,
+              char_handle, descr_uuid, &descr_result, &descr_count);
+            if (status != ESP_OK || descr_count == 0) {
+              ESP_LOGE("xenopixel", "${saber_name}: Could not find CCCD for 0x2A05 (status=%d, count=%d)", status, descr_count);
+              return;
+            }
+            uint16_t cccd_handle = descr_result.handle;
+            ESP_LOGI("xenopixel", "${saber_name}: Found CCCD at handle %d", cccd_handle);
+
+            // Step 4: Register local callback for indications
+            esp_ble_gattc_register_for_notify(gattc_if, id(${saber_id}_ble).get_remote_bda(), char_handle);
+
+            // Step 5: Write 0x0200 (indication enable) to the CCCD
+            uint8_t indicate_val[] = {0x02, 0x00};
+            esp_err_t err = esp_ble_gattc_write_char_descr(
+              gattc_if, conn_id, cccd_handle,
+              sizeof(indicate_val), indicate_val,
+              ESP_GATT_WRITE_TYPE_RSP, ESP_GATT_AUTH_REQ_NONE
+            );
+            if (err == ESP_OK) {
+              ESP_LOGI("xenopixel", "${saber_name}: Wrote indicate-enable to CCCD handle %d", cccd_handle);
+            } else {
+              ESP_LOGE("xenopixel", "${saber_name}: Failed to write CCCD: %d", err);
+            }
+        - delay: 500ms
+        - logger.log: "Sending HandShake to DAE1 for ${saber_name}..."
+        - ble_client.ble_write:
+            id: ${saber_id}_ble
+            service_uuid: "0000dae0-0000-1000-8000-00805f9b34fb"
+            characteristic_uuid: "0000dae1-0000-1000-8000-00805f9b34fb"
+            # [2,{"HandShake":"HelloDamien"}]
+            value: [0x5B, 0x32, 0x2C, 0x7B, 0x22, 0x48, 0x61, 0x6E, 0x64, 0x53, 0x68, 0x61, 0x6B, 0x65, 0x22, 0x3A, 0x22, 0x48, 0x65, 0x6C, 0x6C, 0x6F, 0x44, 0x61, 0x6D, 0x69, 0x65, 0x6E, 0x22, 0x7D, 0x5D]
+        - delay: 200ms
+        - logger.log: "Sending Authorize to 3AB1 for ${saber_name}..."
+        - ble_client.ble_write:
+            id: ${saber_id}_ble
+            service_uuid: "00003ab0-0000-1000-8000-00805f9b34fb"
+            characteristic_uuid: "00003ab1-0000-1000-8000-00805f9b34fb"
+            # [2,{"Authorize":"SaberOfDamien"}]
+            value: [0x5B, 0x32, 0x2C, 0x7B, 0x22, 0x41, 0x75, 0x74, 0x68, 0x6F, 0x72, 0x69, 0x7A, 0x65, 0x22, 0x3A, 0x22, 0x53, 0x61, 0x62, 0x65, 0x72, 0x4F, 0x66, 0x44, 0x61, 0x6D, 0x69, 0x65, 0x6E, 0x22, 0x7D, 0x5D]
+        - logger.log: "Waiting for ${saber_name} authorization..."
+    on_disconnect:
+      then:
+        - logger.log: "BLE Disconnected from ${saber_name}"
+        - binary_sensor.template.publish:
+            id: ${saber_id}_connected
+            state: OFF
+        - globals.set:
+            id: ${saber_id}_authorized
+            value: 'false'
+        - light.turn_off: ${saber_id}_light
+        - lambda: |-
+            ((xenopixel_light::XenopixelLight *)id(${saber_id}_light).get_output())->reset_handle();
+
+# BLE notification subscriptions - CRITICAL for saber to accept commands
+# The saber requires notifications to be enabled (CCCD write) before
+# it will process any commands. These text_sensors trigger that automatically.
+text_sensor:
+  - platform: ble_client
+    ble_client_id: ${saber_id}_ble
+    id: ${saber_id}_notify_3ab1
+    name: "${friendly_name} ${saber_name} BLE Notify 3AB1"
+    internal: true
+    service_uuid: "00003ab0-0000-1000-8000-00805f9b34fb"
+    characteristic_uuid: "00003ab1-0000-1000-8000-00805f9b34fb"
+    notify: true
+    on_value:
+      then:
+        - lambda: |-
+            ESP_LOGI("xenopixel", "${saber_name} Notify 3AB1: %s", x.c_str());
+            // Check for authorization
+            if (x.find("AccessAllowed") != std::string::npos) {
+              ESP_LOGI("xenopixel", "*** ${saber_name} AUTHORIZED! Commands now accepted ***");
+              id(${saber_id}_authorized) = true;
+            }
+
+  - platform: ble_client
+    ble_client_id: ${saber_id}_ble
+    id: ${saber_id}_notify_dae1
+    name: "${friendly_name} ${saber_name} BLE Notify DAE1"
+    internal: true
+    service_uuid: "0000dae0-0000-1000-8000-00805f9b34fb"
+    characteristic_uuid: "0000dae1-0000-1000-8000-00805f9b34fb"
+    notify: true
+    on_value:
+      then:
+        - lambda: |-
+            ESP_LOGI("xenopixel", "${saber_name} Notify DAE1: %s", x.c_str());
+            // Set flag to prevent feedback loops when updating number entities
+            id(${saber_id}_syncing) = true;
+            // Parse JSON notification to sync state
+            // Format: [3,{...params...}]
+            std::string json_str = x;
+            // Find the opening brace of the params object
+            auto brace_start = json_str.find('{');
+            auto brace_end = json_str.rfind('}');
+            if (brace_start == std::string::npos || brace_end == std::string::npos) return;
+            std::string params = json_str.substr(brace_start, brace_end - brace_start + 1);
+
+            // Parse PowerOn
+            auto power_on_pos = params.find("\"PowerOn\":");
+            if (power_on_pos != std::string::npos) {
+              bool blade_on = params.find("true", power_on_pos) < params.find(",", power_on_pos + 10);
+              auto call = id(${saber_id}_light).make_call();
+              call.set_state(blade_on);
+              call.perform();
+              ESP_LOGI("xenopixel", "${saber_name} State sync: blade %s", blade_on ? "ON" : "OFF");
+            }
+
+            // Parse Power (battery level)
+            auto power_pos = params.find("\"Power\":");
+            if (power_pos != std::string::npos) {
+              int val = atoi(params.c_str() + power_pos + 8);
+              id(${saber_id}_battery) = val;
+              id(${saber_id}_battery_sensor).publish_state(val);
+              ESP_LOGI("xenopixel", "${saber_name} State sync: battery %d%%", val);
+            }
+
+            // Parse Brightness
+            auto brightness_pos = params.find("\"Brightness\":");
+            if (brightness_pos != std::string::npos) {
+              int val = atoi(params.c_str() + brightness_pos + 13);
+              auto call = id(${saber_id}_light).make_call();
+              call.set_brightness((float)val / 100.0f);
+              call.perform();
+              ESP_LOGI("xenopixel", "${saber_name} State sync: brightness %d", val);
+            }
+
+            // Parse BackgroundColor
+            auto color_pos = params.find("\"BackgroundColor\":[");
+            if (color_pos != std::string::npos) {
+              int r = 0, g = 0, b = 0;
+              sscanf(params.c_str() + color_pos + 19, "%d,%d,%d", &r, &g, &b);
+              auto call = id(${saber_id}_light).make_call();
+              call.set_rgb((float)r / 255.0f, (float)g / 255.0f, (float)b / 255.0f);
+              call.perform();
+              ESP_LOGI("xenopixel", "${saber_name} State sync: color [%d,%d,%d]", r, g, b);
+            }
+
+            // Parse Volume
+            auto volume_pos = params.find("\"Volume\":");
+            if (volume_pos != std::string::npos) {
+              int val = atoi(params.c_str() + volume_pos + 9);
+              auto call = id(${saber_id}_volume).make_call();
+              call.set_value(val);
+              call.perform();
+              ESP_LOGI("xenopixel", "${saber_name} State sync: volume %d", val);
+            }
+
+            // Parse CurrentSoundPackageNo
+            auto font_pos = params.find("\"CurrentSoundPackageNo\":");
+            if (font_pos != std::string::npos) {
+              int val = atoi(params.c_str() + font_pos + 23);
+              auto call = id(${saber_id}_sound_font).make_call();
+              call.set_value(val);
+              call.perform();
+              ESP_LOGI("xenopixel", "${saber_name} State sync: sound font %d", val);
+            }
+
+            // Parse CurrentLightEffect
+            auto effect_pos = params.find("\"CurrentLightEffect\":");
+            if (effect_pos != std::string::npos) {
+              int val = atoi(params.c_str() + effect_pos + 21);
+              auto call = id(${saber_id}_light_effect).make_call();
+              call.set_value(val);
+              call.perform();
+              ESP_LOGI("xenopixel", "${saber_name} State sync: light effect %d", val);
+            }
+
+            // Parse HardwareVersion
+            auto hw_pos = params.find("\"HardwareVersion\":\"");
+            if (hw_pos != std::string::npos) {
+              auto hw_start = hw_pos + 19;
+              auto hw_end = params.find("\"", hw_start);
+              if (hw_end != std::string::npos) {
+                id(${saber_id}_hw_version) = params.substr(hw_start, hw_end - hw_start);
+                id(${saber_id}_hw_version_sensor).publish_state(id(${saber_id}_hw_version));
+              }
+            }
+
+            // Parse SoftwareVersion
+            auto sw_pos = params.find("\"SoftwareVersion\":\"");
+            if (sw_pos != std::string::npos) {
+              auto sw_start = sw_pos + 19;
+              auto sw_end = params.find("\"", sw_start);
+              if (sw_end != std::string::npos) {
+                id(${saber_id}_sw_version) = params.substr(sw_start, sw_end - sw_start);
+                id(${saber_id}_sw_version_sensor).publish_state(id(${saber_id}_sw_version));
+              }
+            }
+
+            // Clear flag after all updates
+            id(${saber_id}_syncing) = false;
+
+  # Version sensors (populated from DAE1 notifications)
+  - platform: template
+    name: "${friendly_name} ${saber_name} Hardware Version"
+    id: ${saber_id}_hw_version_sensor
+    icon: "mdi:chip"
+
+  - platform: template
+    name: "${friendly_name} ${saber_name} Software Version"
+    id: ${saber_id}_sw_version_sensor
+    icon: "mdi:tag"
+
+# Connection status
+binary_sensor:
+  - platform: template
+    name: "${friendly_name} ${saber_name} Connected"
+    id: ${saber_id}_connected
+    device_class: connectivity
+
+  - platform: template
+    name: "${friendly_name} ${saber_name} Authorized"
+    id: ${saber_id}_auth_sensor
+    lambda: 'return id(${saber_id}_authorized);'
+
+# Battery sensor (populated from DAE1 notifications)
+sensor:
+  - platform: template
+    name: "${friendly_name} ${saber_name} Battery"
+    id: ${saber_id}_battery_sensor
+    unit_of_measurement: "%"
+    device_class: battery
+    state_class: measurement
+    accuracy_decimals: 0
+    lambda: 'return id(${saber_id}_battery);'
+
+# Number inputs
+number:
+  # Volume control (0-100)
+  - platform: template
+    name: "${friendly_name} ${saber_name} Volume"
+    id: ${saber_id}_volume
+    icon: "mdi:volume-high"
+    min_value: 0
+    max_value: 100
+    step: 1
+    initial_value: 50
+    optimistic: true
+    set_action:
+      - if:
+          condition:
+            lambda: 'return id(${saber_id}_authorized) && !id(${saber_id}_syncing);'
+          then:
+            - ble_client.ble_write:
+                id: ${saber_id}_ble
+                service_uuid: "00003ab0-0000-1000-8000-00805f9b34fb"
+                characteristic_uuid: "00003ab1-0000-1000-8000-00805f9b34fb"
+                value: !lambda |-
+                  int volume = (int)x;
+                  char cmd[48];
+                  snprintf(cmd, sizeof(cmd), "[2,{\"Volume\":%d}]", volume);
+                  ESP_LOGI("xenopixel", "${saber_name} Sending volume: %s", cmd);
+                  return std::vector<uint8_t>(cmd, cmd + strlen(cmd));
+
+  # Sound font selection
+  - platform: template
+    name: "${friendly_name} ${saber_name} Sound Font"
+    id: ${saber_id}_sound_font
+    icon: "mdi:music-note"
+    min_value: 1
+    max_value: 34
+    step: 1
+    initial_value: 1
+    optimistic: true
+    set_action:
+      - if:
+          condition:
+            lambda: 'return id(${saber_id}_authorized) && !id(${saber_id}_syncing);'
+          then:
+            - ble_client.ble_write:
+                id: ${saber_id}_ble
+                service_uuid: "00003ab0-0000-1000-8000-00805f9b34fb"
+                characteristic_uuid: "00003ab1-0000-1000-8000-00805f9b34fb"
+                value: !lambda |-
+                  int font = (int)x;
+                  char cmd[64];
+                  snprintf(cmd, sizeof(cmd), "[2,{\"CurrentSoundPackageNo\":%d}]", font);
+                  ESP_LOGI("xenopixel", "${saber_name} Sending sound font: %s", cmd);
+                  return std::vector<uint8_t>(cmd, cmd + strlen(cmd));
+
+  # Keepalive interval (seconds, 0 = disabled)
+  # Sends a periodic command to prevent the saber from entering DeepSleep.
+  # When the saber is out of BLE range, keepalives stop and it sleeps naturally.
+  - platform: template
+    name: "${friendly_name} ${saber_name} Keepalive Interval"
+    id: ${saber_id}_keepalive_interval
+    icon: "mdi:timer-outline"
+    min_value: 0
+    max_value: 300
+    step: 5
+    initial_value: 30
+    optimistic: true
+    unit_of_measurement: "s"
+    set_action:
+      - globals.set:
+          id: ${saber_id}_keepalive_interval_val
+          value: !lambda 'return (int)x;'
+
+  # Light effect selection
+  - platform: template
+    name: "${friendly_name} ${saber_name} Light Effect"
+    id: ${saber_id}_light_effect
+    icon: "mdi:lightning-bolt"
+    min_value: 1
+    max_value: 9
+    step: 1
+    initial_value: 1
+    optimistic: true
+    set_action:
+      - if:
+          condition:
+            lambda: 'return id(${saber_id}_authorized) && !id(${saber_id}_syncing);'
+          then:
+            - ble_client.ble_write:
+                id: ${saber_id}_ble
+                service_uuid: "00003ab0-0000-1000-8000-00805f9b34fb"
+                characteristic_uuid: "00003ab1-0000-1000-8000-00805f9b34fb"
+                value: !lambda |-
+                  int effect = (int)x;
+                  char cmd[64];
+                  snprintf(cmd, sizeof(cmd), "[2,{\"CurrentLightEffect\":%d}]", effect);
+                  ESP_LOGI("xenopixel", "${saber_name} Sending light effect: %s", cmd);
+                  return std::vector<uint8_t>(cmd, cmd + strlen(cmd));
+
+# Keepalive: periodically re-sends the current brightness to prevent saber DeepSleep.
+interval:
+  - interval: 1s
+    then:
+      - lambda: |-
+          static uint32_t last_keepalive_ms = 0;
+          int interval = id(${saber_id}_keepalive_interval_val);
+          // 0 = disabled
+          if (interval <= 0) return;
+          if (!id(${saber_id}_authorized)) return;
+
+          uint32_t now = millis();
+          if ((now - last_keepalive_ms) < (uint32_t)(interval * 1000)) return;
+          last_keepalive_ms = now;
+
+          // Re-send current brightness — idempotent, no visible change
+          int brightness = (int)(id(${saber_id}_light).current_values.get_brightness() * 100.0f);
+          char cmd[48];
+          snprintf(cmd, sizeof(cmd), "[2,{\"Brightness\":%d}]", brightness);
+          ESP_LOGD("xenopixel", "${saber_name} Keepalive: %s", cmd);
+
+          auto chr = id(${saber_id}_ble).get_characteristic(
+            esphome::esp32_ble_tracker::ESPBTUUID::from_raw("00003ab0-0000-1000-8000-00805f9b34fb"),
+            esphome::esp32_ble_tracker::ESPBTUUID::from_raw("00003ab1-0000-1000-8000-00805f9b34fb")
+          );
+          if (chr != nullptr) {
+            auto status = esp_ble_gattc_write_char(
+              id(${saber_id}_ble).get_gattc_if(),
+              id(${saber_id}_ble).get_conn_id(),
+              chr->handle,
+              strlen(cmd),
+              (uint8_t*)cmd,
+              ESP_GATT_WRITE_TYPE_NO_RSP,
+              ESP_GATT_AUTH_REQ_NONE
+            );
+            if (status != ESP_OK) {
+              ESP_LOGW("xenopixel", "${saber_name} Keepalive write failed: %d", status);
+            }
+          }
+
+# Light entity — provides color wheel, brightness slider, and on/off toggle in HA
+light:
+  - platform: xenopixel_light
+    name: "${friendly_name} ${saber_name} Blade"
+    id: ${saber_id}_light
+    icon: "mdi:sword"
+    default_transition_length: 0s
+    ble_client_id: ${saber_id}_ble
+    authorized_id: ${saber_id}_authorized
+    syncing_id: ${saber_id}_syncing
+
+button:
+  - platform: template
+    name: "${friendly_name} ${saber_name} Reconnect BLE"
+    icon: "mdi:bluetooth-connect"
+    on_press:
+      - ble_client.connect: ${saber_id}_ble
+
+  # Combat effects — one-shot triggers (no notification feedback)
+  - platform: template
+    name: "${friendly_name} ${saber_name} Clash"
+    icon: "mdi:sword-cross"
+    on_press:
+      - if:
+          condition:
+            lambda: 'return id(${saber_id}_authorized);'
+          then:
+            - ble_client.ble_write:
+                id: ${saber_id}_ble
+                service_uuid: "00003ab0-0000-1000-8000-00805f9b34fb"
+                characteristic_uuid: "00003ab1-0000-1000-8000-00805f9b34fb"
+                value: !lambda |-
+                  const char cmd[] = "[2,{\"Clash\":true}]";
+                  ESP_LOGI("xenopixel", "${saber_name} Sending clash: %s", cmd);
+                  return std::vector<uint8_t>(cmd, cmd + sizeof(cmd) - 1);
+
+  - platform: template
+    name: "${friendly_name} ${saber_name} Blaster"
+    icon: "mdi:flash"
+    on_press:
+      - if:
+          condition:
+            lambda: 'return id(${saber_id}_authorized);'
+          then:
+            - ble_client.ble_write:
+                id: ${saber_id}_ble
+                service_uuid: "00003ab0-0000-1000-8000-00805f9b34fb"
+                characteristic_uuid: "00003ab1-0000-1000-8000-00805f9b34fb"
+                value: !lambda |-
+                  const char cmd[] = "[2,{\"Blaster\":true}]";
+                  ESP_LOGI("xenopixel", "${saber_name} Sending blaster: %s", cmd);
+                  return std::vector<uint8_t>(cmd, cmd + sizeof(cmd) - 1);
+
+  - platform: template
+    name: "${friendly_name} ${saber_name} Force"
+    icon: "mdi:creation"
+    on_press:
+      - if:
+          condition:
+            lambda: 'return id(${saber_id}_authorized);'
+          then:
+            - ble_client.ble_write:
+                id: ${saber_id}_ble
+                service_uuid: "00003ab0-0000-1000-8000-00805f9b34fb"
+                characteristic_uuid: "00003ab1-0000-1000-8000-00805f9b34fb"
+                value: !lambda |-
+                  const char cmd[] = "[2,{\"Force\":true}]";
+                  ESP_LOGI("xenopixel", "${saber_name} Sending force: %s", cmd);
+                  return std::vector<uint8_t>(cmd, cmd + sizeof(cmd) - 1);
+
+# Combat effects — toggled (Lockup and Drag stay active until turned off)
+switch:
+  - platform: template
+    name: "${friendly_name} ${saber_name} WLED Sync"
+    id: ${saber_id}_wled_sync
+    icon: "mdi:sync"
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    turn_on_action:
+      - lambda: |-
+          auto *out = (xenopixel_light::XenopixelLight *)id(${saber_id}_light).get_output();
+          out->set_wled_active(true);
+    turn_off_action:
+      - lambda: |-
+          auto *out = (xenopixel_light::XenopixelLight *)id(${saber_id}_light).get_output();
+          out->set_wled_active(false);
+
+  - platform: template
+    name: "${friendly_name} ${saber_name} Lockup"
+    id: ${saber_id}_lockup
+    icon: "mdi:lock"
+    optimistic: true
+    turn_on_action:
+      - if:
+          condition:
+            lambda: 'return id(${saber_id}_authorized);'
+          then:
+            - ble_client.ble_write:
+                id: ${saber_id}_ble
+                service_uuid: "00003ab0-0000-1000-8000-00805f9b34fb"
+                characteristic_uuid: "00003ab1-0000-1000-8000-00805f9b34fb"
+                value: !lambda |-
+                  const char cmd[] = "[2,{\"Lockup\":true}]";
+                  ESP_LOGI("xenopixel", "${saber_name} Sending lockup on: %s", cmd);
+                  return std::vector<uint8_t>(cmd, cmd + sizeof(cmd) - 1);
+    turn_off_action:
+      - if:
+          condition:
+            lambda: 'return id(${saber_id}_authorized);'
+          then:
+            - ble_client.ble_write:
+                id: ${saber_id}_ble
+                service_uuid: "00003ab0-0000-1000-8000-00805f9b34fb"
+                characteristic_uuid: "00003ab1-0000-1000-8000-00805f9b34fb"
+                value: !lambda |-
+                  const char cmd[] = "[2,{\"Lockup\":false}]";
+                  ESP_LOGI("xenopixel", "${saber_name} Sending lockup off: %s", cmd);
+                  return std::vector<uint8_t>(cmd, cmd + sizeof(cmd) - 1);
+
+  - platform: template
+    name: "${friendly_name} ${saber_name} Drag"
+    id: ${saber_id}_drag
+    icon: "mdi:drag"
+    optimistic: true
+    turn_on_action:
+      - if:
+          condition:
+            lambda: 'return id(${saber_id}_authorized);'
+          then:
+            - ble_client.ble_write:
+                id: ${saber_id}_ble
+                service_uuid: "00003ab0-0000-1000-8000-00805f9b34fb"
+                characteristic_uuid: "00003ab1-0000-1000-8000-00805f9b34fb"
+                value: !lambda |-
+                  const char cmd[] = "[2,{\"Drag\":true}]";
+                  ESP_LOGI("xenopixel", "${saber_name} Sending drag on: %s", cmd);
+                  return std::vector<uint8_t>(cmd, cmd + sizeof(cmd) - 1);
+    turn_off_action:
+      - if:
+          condition:
+            lambda: 'return id(${saber_id}_authorized);'
+          then:
+            - ble_client.ble_write:
+                id: ${saber_id}_ble
+                service_uuid: "00003ab0-0000-1000-8000-00805f9b34fb"
+                characteristic_uuid: "00003ab1-0000-1000-8000-00805f9b34fb"
+                value: !lambda |-
+                  const char cmd[] = "[2,{\"Drag\":false}]";
+                  ESP_LOGI("xenopixel", "${saber_name} Sending drag off: %s", cmd);
+                  return std::vector<uint8_t>(cmd, cmd + sizeof(cmd) - 1);

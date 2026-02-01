@@ -467,9 +467,10 @@ class TestXenopixelProtocol:
         assert state is not None
         assert state.drag is False
 
-    def test_parse_state_full_status_with_combat_effects(self) -> None:
-        """Test parsing full status dump including combat effect fields."""
-        response = {
+    @staticmethod
+    def _full_status_response() -> dict:
+        """Build a full status response including combat effect fields."""
+        return {
             "type": 3,
             "params": {
                 "HardwareVersion": "XENOA04525CW13907",
@@ -500,7 +501,10 @@ class TestXenopixelProtocol:
                 "Brightness": 100,
             },
         }
-        state = XenopixelProtocol.parse_state(response)
+
+    def test_parse_state_full_status_core_fields(self) -> None:
+        """Test parsing core fields from full status dump."""
+        state = XenopixelProtocol.parse_state(self._full_status_response())
 
         assert state is not None
         assert state.hardware_version == "XENOA04525CW13907"
@@ -510,6 +514,19 @@ class TestXenopixelProtocol:
         assert state.total_sound_fonts == 34
         assert state.light_effect == 0
         assert state.total_light_effects == 8
+        assert state.preon_time == 0
+        assert state.power_level == 100
+        assert state.volume == 10
+        assert state.red == 255
+        assert state.green == 230
+        assert state.blue == 103
+        assert state.brightness == 100
+
+    def test_parse_state_full_status_combat_effects(self) -> None:
+        """Test parsing combat effect fields from full status dump."""
+        state = XenopixelProtocol.parse_state(self._full_status_response())
+
+        assert state is not None
         assert state.current_lockup == 0
         assert state.total_lockup == 1
         assert state.current_drag == 0
@@ -524,10 +541,3 @@ class TestXenopixelProtocol:
         assert state.total_post_off == 0
         assert state.current_mode == 0
         assert state.total_mode == 8
-        assert state.preon_time == 0
-        assert state.power_level == 100
-        assert state.volume == 10
-        assert state.red == 255
-        assert state.green == 230
-        assert state.blue == 103
-        assert state.brightness == 100

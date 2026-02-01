@@ -54,7 +54,9 @@ def diagnose_system_info() -> None:
     print(f"BlueZ packages: {run_cmd(['dpkg', '-l'])}")
 
     print_section("Bluetooth Service")
-    print(f"Service status: {run_cmd(['systemctl', 'status', 'bluetooth', '--no-pager', '-l'])}")
+    print(
+        f"Service status: {run_cmd(['systemctl', 'status', 'bluetooth', '--no-pager', '-l'])}"
+    )
 
 
 def diagnose_adapter_info() -> None:

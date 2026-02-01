@@ -444,3 +444,11 @@ TEST_F(XenopixelLightTest, WLED_WriteStateWorksAfterDisable) {
   light_.write_state(&state_);
   EXPECT_FALSE(g_ble_writes().empty());
 }
+
+TEST_F(XenopixelLightTest, WLED_IsWledActiveGetter) {
+  EXPECT_FALSE(light_.is_wled_active());
+  light_.set_wled_active(true);
+  EXPECT_TRUE(light_.is_wled_active());
+  light_.set_wled_active(false);
+  EXPECT_FALSE(light_.is_wled_active());
+}
