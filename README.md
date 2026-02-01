@@ -49,23 +49,6 @@ cd esphome && esphome run xenopixel_2sabers.yaml
 
 6. The ESP32 device will appear automatically in Home Assistant via ESPHome
 
-## Saber Preparation
-
-Before use, configure your lightsaber's SD card:
-
-Edit `Set/config.ini` on the saber's SD card:
-
-```ini
-# CRITICAL: Prevent Bluetooth from turning off
-DeepSleep = 999999
-
-# Optional: Give your saber a unique name
-BluetoothName = Saber_Living_Room
-
-# Optional: Set a reasonable default volume
-Vol = 50
-```
-
 ## Multi-Saber Support
 
 The ESPHome proxy supports controlling multiple sabers from a single ESP32 (up to 3, the ESP32 default GATT client limit). Each saber gets its own set of entities — only real sabers are compiled in, so there are no phantom entities.
@@ -118,9 +101,6 @@ Each saber creates its own set of entities. For a saber named "Saber 1":
 2. Move the ESP32 closer to the saber
 3. Ensure no metal obstructions between ESP32 and saber (aluminum hilts can block signals)
 
-### Colors don't match
-
-The saber's LED strip may have different color ordering (RGB vs GRB). This will be addressed in future updates.
 
 ## WLED Sync
 
@@ -183,7 +163,7 @@ uv run ruff check .
 uv run ruff format --check .
 
 # Run type checking
-uv run mypy lib/xenopixel_ble
+uv run mypy src/xenopixel_ble
 
 # Run Python tests
 uv run pytest tests/ -v

@@ -25,7 +25,9 @@ from tools.diagnose_ble import (
 
 def test_run_cmd_success():
     """Successful command returns stdout."""
-    result = run_cmd(["echo", "hello"])
+    mock_result = MagicMock(stdout="hello", stderr="")
+    with patch("tools.diagnose_ble.subprocess.run", return_value=mock_result):
+        result = run_cmd(["echo", "hello"])
     assert result == "hello"
 
 

@@ -34,42 +34,14 @@ class XenopixelLight : public Component, public light::LightOutput {
 
   void loop() override {
 #ifndef UNIT_TEST
-    // Static state shared across all XenopixelLight instances —
-    // one UDP socket, one packet buffer, one generation counter.
     static WiFiUDP udp;
     static bool udp_started = false;
     static std::vector<uint8_t> latest_packet;
     static uint32_t packet_gen = 0;
 
-    if (!udp_started) {
-      if (wifi::global_wifi_component != nullptr &&
-          wifi::global_wifi_component->is_connected()) {
-        udp.begin(21324);
-        udp_started = true;
-        ESP_LOGI("xenopixel", "WLED UDP listener started on port 21324");
-      }
-      return;
-    }
+    if (!ensure_udp_started_(udp, udp_started)) return;
+    drain_udp_packets_(udp, latest_packet, packet_gen);
 
-    // Read all queued packets, keep only the latest.
-    // Only the first instance to run this iteration finds packets;
-    // subsequent instances see parsePacket() == 0.
-    uint8_t buf[256];
-    int latest_len = 0;
-    int pkt_size;
-    while ((pkt_size = udp.parsePacket()) > 0) {
-      if (pkt_size >= 6) latest_len = udp.read(buf, sizeof(buf));
-      udp.clear();
-    }
-    if (latest_len > 0) {
-      latest_packet.assign(buf, buf + latest_len);
-      packet_gen++;
-      ESP_LOGD("xenopixel", "WLED UDP packet: %d bytes, proto=%d bri=%d rgb=[%d,%d,%d]",
-               latest_len, latest_packet[0], latest_packet[2],
-               latest_packet[3], latest_packet[4], latest_packet[5]);
-    }
-
-    // Apply if this instance hasn't seen this packet yet
     if (wled_active_ && packet_gen != last_seen_gen_ &&
         latest_packet.size() >= 6) {
       apply_wled_packet(latest_packet);
@@ -130,6 +102,42 @@ class XenopixelLight : public Component, public light::LightOutput {
   void reset_handle() { char_handle_ = 0; }
 
  protected:
+#ifndef UNIT_TEST
+  // Start the shared UDP listener once WiFi is connected.
+  static bool ensure_udp_started_(WiFiUDP &udp, bool &started) {
+    if (started) return true;
+    if (wifi::global_wifi_component == nullptr ||
+        !wifi::global_wifi_component->is_connected())
+      return false;
+    udp.begin(21324);
+    started = true;
+    ESP_LOGI("xenopixel", "WLED UDP listener started on port 21324");
+    return true;
+  }
+
+  // Drain all queued UDP packets, keeping only the latest valid one.
+  static void drain_udp_packets_(WiFiUDP &udp,
+                                 std::vector<uint8_t> &latest_packet,
+                                 uint32_t &packet_gen) {
+    uint8_t buf[256];
+    int latest_len = 0;
+    int pkt_size;
+    while ((pkt_size = udp.parsePacket()) > 0) {
+      if (pkt_size >= 6 && pkt_size <= static_cast<int>(sizeof(buf)))
+        latest_len = udp.read(buf, sizeof(buf));
+      udp.clear();
+    }
+    if (latest_len > 0) {
+      latest_packet.assign(buf, buf + latest_len);
+      packet_gen++;
+      ESP_LOGD("xenopixel",
+               "WLED UDP packet: %d bytes, proto=%d bri=%d rgb=[%d,%d,%d]",
+               latest_len, latest_packet[0], latest_packet[2],
+               latest_packet[3], latest_packet[4], latest_packet[5]);
+    }
+  }
+#endif
+
   bool is_ready_for_commands_() {
     if (syncing_global_ != nullptr && syncing_global_->value()) return false;
     if (authorized_global_ == nullptr || !authorized_global_->value())

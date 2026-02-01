@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ESPHome proxy for controlling Xenopixel V3 lightsabers via BLE. Uses an ESP32 as a BLE-to-WiFi bridge to work around Linux BlueZ CCCD compatibility issues.
 
 - **`esphome/`** — ESP32 BLE-to-WiFi proxy configs (the working product)
-- **`lib/xenopixel_ble/`** — Python BLE protocol library (encoder/decoder, constants, state management)
+- **`src/xenopixel_ble/`** — Python BLE protocol library (encoder/decoder, constants, state management)
 
 ## Commands
 
@@ -19,7 +19,7 @@ uv sync --group dev
 uv run pytest
 
 # Run Python tests with coverage (CI enforces 80% minimum)
-uv run pytest --cov=lib/xenopixel_ble --cov-report=term-missing --cov-fail-under=80
+uv run pytest --cov=src/xenopixel_ble --cov-report=term-missing --cov-fail-under=80
 
 # Run a single test file
 uv run pytest tests/test_protocol.py -v
@@ -37,10 +37,10 @@ uv run ruff check .
 uv run ruff format .
 
 # Type check
-uv run mypy lib/xenopixel_ble
+uv run mypy src/xenopixel_ble
 
 # Code complexity (CI thresholds: CCN 15, length 100, args 6)
-uv run lizard lib/xenopixel_ble/ -C 15 -L 100 -a 6 -w -i 0
+uv run lizard src/xenopixel_ble/ -C 15 -L 100 -a 6 -w -i 0
 
 # ESPHome compile (requires esphome installed via uv tool)
 cd esphome && esphome compile xenopixel_1saber.yaml
@@ -71,7 +71,7 @@ Two separate GATT services are used:
 4. Send `[2,{"Authorize":"SaberOfDamien"}]` to **0x3AB1**
 5. Saber responds with full status dump on DAE1, then `[3,{"Authorize":"AccessAllowed"}]` on 3AB1
 
-### Python BLE Protocol Library (`lib/xenopixel_ble/`)
+### Python BLE Protocol Library (`src/xenopixel_ble/`)
 
 - `protocol.py` — Encoder/decoder for all BLE commands and responses. `XenopixelProtocol` has static methods for each command. `XenopixelState` dataclass holds parsed device state.
 - `const.py` — Domain, BLE UUIDs, message types, parameter names, authorization values.

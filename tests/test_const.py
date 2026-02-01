@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from lib.xenopixel_ble.const import (
+from src.xenopixel_ble.const import (
     AUTHORIZE_RESPONSE,
     AUTHORIZE_VALUE,
     CHAR_CONTROL_ALT_UUID,

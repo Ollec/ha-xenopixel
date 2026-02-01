@@ -46,7 +46,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["lib*"]
+include = ["src*"]
 
 # Ruff configuration
 [tool.ruff]
@@ -76,7 +76,7 @@ ignore = [
 "tools/*" = ["ARG001", "ARG005", "E722", "F841", "SIM102", "SIM105"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["lib.xenopixel_ble"]
+known-first-party = ["src.xenopixel_ble"]
 
 # Ruff formatter (replaces Black)
 [tool.ruff.format]
@@ -117,7 +117,7 @@ filterwarnings = [
 
 # Coverage configuration
 [tool.coverage.run]
-source = ["lib/xenopixel_ble", "tools"]
+source = ["src/xenopixel_ble", "tools"]
 branch = true
 omit = [
     "tools/test_saber.py",
