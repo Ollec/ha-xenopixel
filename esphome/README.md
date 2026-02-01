@@ -110,7 +110,7 @@ After adding the ESPHome device, you'll have these entities:
 | `number.xenopixel_saber_blue` | Number | Blue color (0-255) |
 | `number.xenopixel_saber_brightness` | Number | Brightness (0-100) |
 | `number.xenopixel_saber_volume` | Number | Volume (0-100) |
-| `number.xenopixel_saber_sound_font` | Number | Sound font selection |
+| `number.xenopixel_saber_sound_font` | Number | Sound font selection (1-34) |
 | `number.xenopixel_saber_light_effect` | Number | Light effect selection |
 | `sensor.xenopixel_saber_battery` | Sensor | Battery level (%) |
 | `binary_sensor.xenopixel_saber_connected` | Binary Sensor | BLE connection status |
@@ -119,6 +119,11 @@ After adding the ESPHome device, you'll have these entities:
 | `text_sensor.xenopixel_saber_software_version` | Text Sensor | Software version string |
 | `button.xenopixel_saber_*_preset` | Button | Color presets (red, green, blue, white) |
 | `button.xenopixel_saber_reconnect_ble` | Button | Reconnect BLE |
+| `button.xenopixel_saber_clash` | Button | Trigger clash effect (one-shot) |
+| `button.xenopixel_saber_blaster` | Button | Trigger blaster effect (one-shot) |
+| `button.xenopixel_saber_force` | Button | Trigger force effect (one-shot) |
+| `switch.xenopixel_saber_lockup` | Switch | Toggle lockup effect on/off |
+| `switch.xenopixel_saber_drag` | Switch | Toggle drag effect on/off |
 
 ## Example Automations
 
@@ -234,7 +239,12 @@ cd tests/cpp && cmake -B build && cmake --build build && ctest --test-dir build 
 | Set Color | `[2,{"BackgroundColor":[R,G,B]}]` |
 | Set Brightness | `[2,{"Brightness":0-100}]` |
 | Set Volume | `[2,{"Volume":0-100}]` |
-| Set Sound Font | `[2,{"CurrentSoundPackageNo":N}]` |
+| Set Sound Font | `[2,{"CurrentSoundPackageNo":N}]` (1-34) |
 | Set Light Effect | `[2,{"CurrentLightEffect":N}]` |
+| Clash (one-shot) | `[2,{"Clash":true}]` |
+| Blaster (one-shot) | `[2,{"Blaster":true}]` |
+| Force (one-shot) | `[2,{"Force":true}]` |
+| Lockup ON/OFF | `[2,{"Lockup":true/false}]` |
+| Drag ON/OFF | `[2,{"Drag":true/false}]` |
 
 See [PROTOCOL.md](../PROTOCOL.md) for full protocol documentation.

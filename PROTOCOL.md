@@ -104,6 +104,27 @@ The Xenopixel V3 uses a **JSON-based protocol** over BLE.
 ```
 - Value range: 0-100
 
+### Combat Effects (CONFIRMED via BLE capture 2026-01-31)
+
+Key names confirmed from status dump fields (`CurrentClash`, `CurrentBlaster`, `CurrentForce`, `CurrentLockup`, `CurrentDrag`) and notification capture (`Drag`, `Lockup`). See `references/Log_2026-01-31 17_22_32blast_clash_force_drag_lock.txt`.
+
+**One-shot effects** (trigger once, saber plays the effect then returns to normal — no notification feedback):
+```json
+[2,{"Clash":true}]
+[2,{"Blaster":true}]
+[2,{"Force":true}]
+```
+
+**Toggled effects** (stay active until explicitly turned off — saber sends notifications on DAE1):
+```json
+[2,{"Lockup":true}]   // Enable lockup effect → notification [3,{"Lockup":true}]
+[2,{"Lockup":false}]  // Disable lockup effect → notification [3,{"Lockup":false}]
+[2,{"Drag":true}]     // Enable drag effect → notification [3,{"Drag":true}]
+[2,{"Drag":false}]    // Disable drag effect → notification [3,{"Drag":false}]
+```
+
+The status dump also reports totals for each effect type (e.g., `TotalClash:3`, `TotalBlaster:3`, `TotalForce:2`, `TotalLockup:1`, `TotalDrag:1`), suggesting multiple variants exist per effect.
+
 ## Status Notifications
 
 The device sends status updates via notifications on `0xDAE1`.
@@ -129,16 +150,33 @@ The device reports comprehensive status including:
 | `Power` | int | Battery percentage |
 | `HardwareVersion` | string | Hardware version |
 | `SoftwareVersion` | string | Software version |
-| `CurrentSoundPackageNo` | int | Active sound font number |
+| `CurrentSoundPackageNo` | int | Active sound font number (0-indexed) |
 | `TotalSoundPackage` | int | Total available sound fonts |
-| `CurrentLightEffect` | int | Active blade effect (1-9) |
+| `CurrentLightEffect` | int | Active blade effect |
+| `TotalLightEffect` | int | Total available light effects |
+| `CurrentLockup` | int | Active lockup effect variant |
+| `TotalLockup` | int | Total lockup variants |
+| `CurrentDrag` | int | Active drag effect variant |
+| `TotalDrag` | int | Total drag variants |
+| `CurrentBlaster` | int | Active blaster effect variant |
+| `TotalBlaster` | int | Total blaster variants |
+| `CurrentClash` | int | Active clash effect variant |
+| `TotalClash` | int | Total clash variants |
+| `CurrentForce` | int | Active force effect variant |
+| `TotalForce` | int | Total force variants |
+| `CurrentPostOff` | int | Active post-off effect variant |
+| `TotalPostOff` | int | Total post-off variants |
+| `CurrentMode` | int | Active mode |
+| `TotalMode` | int | Total modes |
+| `PreonTime` | int | Preon animation time |
 | `BackgroundColor` | [R,G,B] | Current blade color |
 | `Brightness` | int | Current brightness (0-100) |
 | `Volume` | int | Current volume level |
+| `Power` | int | Battery percentage |
 
-### Example Full Status
+### Example Full Status (captured 2026-01-31)
 ```json
-[3,{"HardwareVersion":"1.0","SoftwareVersion":"3.2.1","Power":63,"PowerOn":false,"CurrentSoundPackageNo":1,"TotalSoundPackage":10,"CurrentLightEffect":0,"BackgroundColor":[255,153,18],"Brightness":100,"Volume":50}]
+[3,{"HardwareVersion":"XENOA04525CW13907","SoftwareVersion":"DMN_XENO_B_SV1.4.0","PowerOn":false,"CurrentSoundPackageNo":0,"TotalSoundPackage":34,"CurrentLightEffect":0,"TotalLightEffect":8,"CurrentLockup":0,"TotalLockup":1,"CurrentDrag":0,"TotalDrag":1,"CurrentBlaster":0,"TotalBlaster":3,"CurrentClash":0,"TotalClash":3,"CurrentForce":0,"TotalForce":2,"CurrentPostOff":0,"TotalPostOff":0,"CurrentMode":0,"TotalMode":8,"PreonTime":0,"Power":100,"Volume":10,"BackgroundColor":[255,230,103]}]
 ```
 
 ## Authorization Handshake (CONFIRMED via HCI Snoop 2026-01-30)

@@ -26,6 +26,24 @@ class TestXenopixelState:
         assert state.sound_font == 0
         assert state.total_sound_fonts == 0
         assert state.light_effect == 0
+        assert state.total_light_effects == 0
+        assert state.lockup is False
+        assert state.current_lockup == 0
+        assert state.total_lockup == 0
+        assert state.drag is False
+        assert state.current_drag == 0
+        assert state.total_drag == 0
+        assert state.current_blaster == 0
+        assert state.total_blaster == 0
+        assert state.current_clash == 0
+        assert state.total_clash == 0
+        assert state.current_force == 0
+        assert state.total_force == 0
+        assert state.current_post_off == 0
+        assert state.total_post_off == 0
+        assert state.current_mode == 0
+        assert state.total_mode == 0
+        assert state.preon_time == 0
         assert state.hardware_version == ""
         assert state.software_version == ""
 
@@ -342,3 +360,174 @@ class TestXenopixelProtocol:
         assert state is not None
         assert state.hardware_version == "2.0"
         assert state.software_version == "4.0.0"
+
+    # --- Combat effect encode tests ---
+
+    def test_encode_clash(self) -> None:
+        """Test clash effect command encoding (one-shot)."""
+        packet = XenopixelProtocol.encode_clash()
+
+        assert isinstance(packet, bytes)
+        assert packet == b'[2,{"Clash":true}]'
+        decoded = json.loads(packet.decode("utf-8"))
+        assert decoded[0] == 2
+        assert decoded[1]["Clash"] is True
+
+    def test_encode_blaster(self) -> None:
+        """Test blaster effect command encoding (one-shot)."""
+        packet = XenopixelProtocol.encode_blaster()
+
+        assert isinstance(packet, bytes)
+        assert packet == b'[2,{"Blaster":true}]'
+        decoded = json.loads(packet.decode("utf-8"))
+        assert decoded[0] == 2
+        assert decoded[1]["Blaster"] is True
+
+    def test_encode_force(self) -> None:
+        """Test force effect command encoding (one-shot)."""
+        packet = XenopixelProtocol.encode_force()
+
+        assert isinstance(packet, bytes)
+        assert packet == b'[2,{"Force":true}]'
+        decoded = json.loads(packet.decode("utf-8"))
+        assert decoded[0] == 2
+        assert decoded[1]["Force"] is True
+
+    def test_encode_lockup_on(self) -> None:
+        """Test lockup enable command encoding."""
+        packet = XenopixelProtocol.encode_lockup(True)
+
+        assert isinstance(packet, bytes)
+        assert packet == b'[2,{"Lockup":true}]'
+        decoded = json.loads(packet.decode("utf-8"))
+        assert decoded[0] == 2
+        assert decoded[1]["Lockup"] is True
+
+    def test_encode_lockup_off(self) -> None:
+        """Test lockup disable command encoding."""
+        packet = XenopixelProtocol.encode_lockup(False)
+
+        assert isinstance(packet, bytes)
+        assert packet == b'[2,{"Lockup":false}]'
+        decoded = json.loads(packet.decode("utf-8"))
+        assert decoded[0] == 2
+        assert decoded[1]["Lockup"] is False
+
+    def test_encode_drag_on(self) -> None:
+        """Test drag enable command encoding."""
+        packet = XenopixelProtocol.encode_drag(True)
+
+        assert isinstance(packet, bytes)
+        assert packet == b'[2,{"Drag":true}]'
+        decoded = json.loads(packet.decode("utf-8"))
+        assert decoded[0] == 2
+        assert decoded[1]["Drag"] is True
+
+    def test_encode_drag_off(self) -> None:
+        """Test drag disable command encoding."""
+        packet = XenopixelProtocol.encode_drag(False)
+
+        assert isinstance(packet, bytes)
+        assert packet == b'[2,{"Drag":false}]'
+        decoded = json.loads(packet.decode("utf-8"))
+        assert decoded[0] == 2
+        assert decoded[1]["Drag"] is False
+
+    # --- Combat effect state parsing tests ---
+
+    def test_parse_state_lockup_notification(self) -> None:
+        """Test parsing lockup toggle notification."""
+        response = {"type": 3, "params": {"Lockup": True}}
+        state = XenopixelProtocol.parse_state(response)
+
+        assert state is not None
+        assert state.lockup is True
+
+    def test_parse_state_lockup_off_notification(self) -> None:
+        """Test parsing lockup off notification."""
+        response = {"type": 3, "params": {"Lockup": False}}
+        state = XenopixelProtocol.parse_state(response)
+
+        assert state is not None
+        assert state.lockup is False
+
+    def test_parse_state_drag_notification(self) -> None:
+        """Test parsing drag toggle notification."""
+        response = {"type": 3, "params": {"Drag": True}}
+        state = XenopixelProtocol.parse_state(response)
+
+        assert state is not None
+        assert state.drag is True
+
+    def test_parse_state_drag_off_notification(self) -> None:
+        """Test parsing drag off notification."""
+        response = {"type": 3, "params": {"Drag": False}}
+        state = XenopixelProtocol.parse_state(response)
+
+        assert state is not None
+        assert state.drag is False
+
+    def test_parse_state_full_status_with_combat_effects(self) -> None:
+        """Test parsing full status dump including combat effect fields."""
+        response = {
+            "type": 3,
+            "params": {
+                "HardwareVersion": "XENOA04525CW13907",
+                "SoftwareVersion": "DMN_XENO_B_SV1.4.0",
+                "PowerOn": False,
+                "CurrentSoundPackageNo": 0,
+                "TotalSoundPackage": 34,
+                "CurrentLightEffect": 0,
+                "TotalLightEffect": 8,
+                "CurrentLockup": 0,
+                "TotalLockup": 1,
+                "CurrentDrag": 0,
+                "TotalDrag": 1,
+                "CurrentBlaster": 0,
+                "TotalBlaster": 3,
+                "CurrentClash": 0,
+                "TotalClash": 3,
+                "CurrentForce": 0,
+                "TotalForce": 2,
+                "CurrentPostOff": 0,
+                "TotalPostOff": 0,
+                "CurrentMode": 0,
+                "TotalMode": 8,
+                "PreonTime": 0,
+                "Power": 100,
+                "Volume": 10,
+                "BackgroundColor": [255, 230, 103],
+                "Brightness": 100,
+            },
+        }
+        state = XenopixelProtocol.parse_state(response)
+
+        assert state is not None
+        assert state.hardware_version == "XENOA04525CW13907"
+        assert state.software_version == "DMN_XENO_B_SV1.4.0"
+        assert state.is_on is False
+        assert state.sound_font == 0
+        assert state.total_sound_fonts == 34
+        assert state.light_effect == 0
+        assert state.total_light_effects == 8
+        assert state.current_lockup == 0
+        assert state.total_lockup == 1
+        assert state.current_drag == 0
+        assert state.total_drag == 1
+        assert state.current_blaster == 0
+        assert state.total_blaster == 3
+        assert state.current_clash == 0
+        assert state.total_clash == 3
+        assert state.current_force == 0
+        assert state.total_force == 2
+        assert state.current_post_off == 0
+        assert state.total_post_off == 0
+        assert state.current_mode == 0
+        assert state.total_mode == 8
+        assert state.preon_time == 0
+        assert state.power_level == 100
+        assert state.volume == 10
+        assert state.red == 255
+        assert state.green == 230
+        assert state.blue == 103
+        assert state.brightness == 100

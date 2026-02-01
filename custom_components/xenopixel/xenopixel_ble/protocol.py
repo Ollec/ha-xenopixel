@@ -14,14 +14,35 @@ from .const import (
     MSG_TYPE_COMMAND,
     PARAM_AUTHORIZE,
     PARAM_BACKGROUND_COLOR,
+    PARAM_BLASTER,
     PARAM_BRIGHTNESS,
+    PARAM_CLASH,
+    PARAM_CURRENT_BLASTER,
+    PARAM_CURRENT_CLASH,
+    PARAM_CURRENT_DRAG,
+    PARAM_CURRENT_FORCE,
     PARAM_CURRENT_LIGHT_EFFECT,
+    PARAM_CURRENT_LOCKUP,
+    PARAM_CURRENT_MODE,
+    PARAM_CURRENT_POST_OFF,
     PARAM_CURRENT_SOUND_PACKAGE,
+    PARAM_DRAG,
+    PARAM_FORCE,
     PARAM_HANDSHAKE,
     PARAM_HARDWARE_VERSION,
+    PARAM_LOCKUP,
     PARAM_POWER,
     PARAM_POWER_ON,
+    PARAM_PREON_TIME,
     PARAM_SOFTWARE_VERSION,
+    PARAM_TOTAL_BLASTER,
+    PARAM_TOTAL_CLASH,
+    PARAM_TOTAL_DRAG,
+    PARAM_TOTAL_FORCE,
+    PARAM_TOTAL_LIGHT_EFFECTS,
+    PARAM_TOTAL_LOCKUP,
+    PARAM_TOTAL_MODE,
+    PARAM_TOTAL_POST_OFF,
     PARAM_TOTAL_SOUND_PACKAGES,
     PARAM_VOLUME,
 )
@@ -41,6 +62,24 @@ class XenopixelState:
     sound_font: int = 0
     total_sound_fonts: int = 0
     light_effect: int = 0
+    total_light_effects: int = 0
+    lockup: bool = False
+    current_lockup: int = 0
+    total_lockup: int = 0
+    drag: bool = False
+    current_drag: int = 0
+    total_drag: int = 0
+    current_blaster: int = 0
+    total_blaster: int = 0
+    current_clash: int = 0
+    total_clash: int = 0
+    current_force: int = 0
+    total_force: int = 0
+    current_post_off: int = 0
+    total_post_off: int = 0
+    current_mode: int = 0
+    total_mode: int = 0
+    preon_time: int = 0
     hardware_version: str = ""
     software_version: str = ""
 
@@ -206,6 +245,62 @@ class XenopixelProtocol:
         return json.dumps(message, separators=(",", ":")).encode("utf-8")
 
     @staticmethod
+    def encode_clash() -> bytes:
+        """Encode a clash effect command (one-shot).
+
+        Returns:
+            bytes: [2,{"Clash":true}] as UTF-8 bytes.
+        """
+        message = [MSG_TYPE_COMMAND, {PARAM_CLASH: True}]
+        return json.dumps(message, separators=(",", ":")).encode("utf-8")
+
+    @staticmethod
+    def encode_blaster() -> bytes:
+        """Encode a blaster effect command (one-shot).
+
+        Returns:
+            bytes: [2,{"Blaster":true}] as UTF-8 bytes.
+        """
+        message = [MSG_TYPE_COMMAND, {PARAM_BLASTER: True}]
+        return json.dumps(message, separators=(",", ":")).encode("utf-8")
+
+    @staticmethod
+    def encode_force() -> bytes:
+        """Encode a force effect command (one-shot).
+
+        Returns:
+            bytes: [2,{"Force":true}] as UTF-8 bytes.
+        """
+        message = [MSG_TYPE_COMMAND, {PARAM_FORCE: True}]
+        return json.dumps(message, separators=(",", ":")).encode("utf-8")
+
+    @staticmethod
+    def encode_lockup(on: bool) -> bytes:
+        """Encode a lockup effect command (toggled).
+
+        Args:
+            on: True to enable, False to disable.
+
+        Returns:
+            bytes: [2,{"Lockup":true/false}] as UTF-8 bytes.
+        """
+        message = [MSG_TYPE_COMMAND, {PARAM_LOCKUP: on}]
+        return json.dumps(message, separators=(",", ":")).encode("utf-8")
+
+    @staticmethod
+    def encode_drag(on: bool) -> bytes:
+        """Encode a drag effect command (toggled).
+
+        Args:
+            on: True to enable, False to disable.
+
+        Returns:
+            bytes: [2,{"Drag":true/false}] as UTF-8 bytes.
+        """
+        message = [MSG_TYPE_COMMAND, {PARAM_DRAG: on}]
+        return json.dumps(message, separators=(",", ":")).encode("utf-8")
+
+    @staticmethod
     def decode_response(data: bytes) -> dict[str, Any] | None:
         """Decode a response packet from the device.
 
@@ -239,6 +334,24 @@ class XenopixelProtocol:
         PARAM_CURRENT_SOUND_PACKAGE: "sound_font",
         PARAM_TOTAL_SOUND_PACKAGES: "total_sound_fonts",
         PARAM_CURRENT_LIGHT_EFFECT: "light_effect",
+        PARAM_TOTAL_LIGHT_EFFECTS: "total_light_effects",
+        PARAM_LOCKUP: "lockup",
+        PARAM_CURRENT_LOCKUP: "current_lockup",
+        PARAM_TOTAL_LOCKUP: "total_lockup",
+        PARAM_DRAG: "drag",
+        PARAM_CURRENT_DRAG: "current_drag",
+        PARAM_TOTAL_DRAG: "total_drag",
+        PARAM_CURRENT_BLASTER: "current_blaster",
+        PARAM_TOTAL_BLASTER: "total_blaster",
+        PARAM_CURRENT_CLASH: "current_clash",
+        PARAM_TOTAL_CLASH: "total_clash",
+        PARAM_CURRENT_FORCE: "current_force",
+        PARAM_TOTAL_FORCE: "total_force",
+        PARAM_CURRENT_POST_OFF: "current_post_off",
+        PARAM_TOTAL_POST_OFF: "total_post_off",
+        PARAM_CURRENT_MODE: "current_mode",
+        PARAM_TOTAL_MODE: "total_mode",
+        PARAM_PREON_TIME: "preon_time",
         PARAM_HARDWARE_VERSION: "hardware_version",
         PARAM_SOFTWARE_VERSION: "software_version",
     }

@@ -529,3 +529,124 @@ button:
     icon: "mdi:bluetooth-connect"
     on_press:
       - ble_client.connect: saber_ble
+
+  # Combat effects — one-shot triggers (no notification feedback)
+  # Key names derived from status dump fields: CurrentClash, CurrentBlaster, CurrentForce
+  # See references/Log_2026-01-31 17_22_32blast_clash_force_drag_lock.txt
+  - platform: template
+    name: "${friendly_name} Clash"
+    icon: "mdi:sword-cross"
+    on_press:
+      - if:
+          condition:
+            lambda: 'return id(saber_authorized);'
+          then:
+            - ble_client.ble_write:
+                id: saber_ble
+                service_uuid: "00003ab0-0000-1000-8000-00805f9b34fb"
+                characteristic_uuid: "00003ab1-0000-1000-8000-00805f9b34fb"
+                value: !lambda |-
+                  const char cmd[] = "[2,{\"Clash\":true}]";
+                  ESP_LOGI("xenopixel", "Sending clash: %s", cmd);
+                  return std::vector<uint8_t>(cmd, cmd + sizeof(cmd) - 1);
+
+  - platform: template
+    name: "${friendly_name} Blaster"
+    icon: "mdi:flash"
+    on_press:
+      - if:
+          condition:
+            lambda: 'return id(saber_authorized);'
+          then:
+            - ble_client.ble_write:
+                id: saber_ble
+                service_uuid: "00003ab0-0000-1000-8000-00805f9b34fb"
+                characteristic_uuid: "00003ab1-0000-1000-8000-00805f9b34fb"
+                value: !lambda |-
+                  const char cmd[] = "[2,{\"Blaster\":true}]";
+                  ESP_LOGI("xenopixel", "Sending blaster: %s", cmd);
+                  return std::vector<uint8_t>(cmd, cmd + sizeof(cmd) - 1);
+
+  - platform: template
+    name: "${friendly_name} Force"
+    icon: "mdi:creation"
+    on_press:
+      - if:
+          condition:
+            lambda: 'return id(saber_authorized);'
+          then:
+            - ble_client.ble_write:
+                id: saber_ble
+                service_uuid: "00003ab0-0000-1000-8000-00805f9b34fb"
+                characteristic_uuid: "00003ab1-0000-1000-8000-00805f9b34fb"
+                value: !lambda |-
+                  const char cmd[] = "[2,{\"Force\":true}]";
+                  ESP_LOGI("xenopixel", "Sending force: %s", cmd);
+                  return std::vector<uint8_t>(cmd, cmd + sizeof(cmd) - 1);
+
+# Combat effects — toggled (Lockup and Drag stay active until turned off)
+# Confirmed via BLE notification capture: "Lockup":true/false, "Drag":true/false
+switch:
+  - platform: template
+    name: "${friendly_name} Lockup"
+    id: saber_lockup
+    icon: "mdi:lock"
+    optimistic: true
+    turn_on_action:
+      - if:
+          condition:
+            lambda: 'return id(saber_authorized);'
+          then:
+            - ble_client.ble_write:
+                id: saber_ble
+                service_uuid: "00003ab0-0000-1000-8000-00805f9b34fb"
+                characteristic_uuid: "00003ab1-0000-1000-8000-00805f9b34fb"
+                value: !lambda |-
+                  const char cmd[] = "[2,{\"Lockup\":true}]";
+                  ESP_LOGI("xenopixel", "Sending lockup on: %s", cmd);
+                  return std::vector<uint8_t>(cmd, cmd + sizeof(cmd) - 1);
+    turn_off_action:
+      - if:
+          condition:
+            lambda: 'return id(saber_authorized);'
+          then:
+            - ble_client.ble_write:
+                id: saber_ble
+                service_uuid: "00003ab0-0000-1000-8000-00805f9b34fb"
+                characteristic_uuid: "00003ab1-0000-1000-8000-00805f9b34fb"
+                value: !lambda |-
+                  const char cmd[] = "[2,{\"Lockup\":false}]";
+                  ESP_LOGI("xenopixel", "Sending lockup off: %s", cmd);
+                  return std::vector<uint8_t>(cmd, cmd + sizeof(cmd) - 1);
+
+  - platform: template
+    name: "${friendly_name} Drag"
+    id: saber_drag
+    icon: "mdi:drag"
+    optimistic: true
+    turn_on_action:
+      - if:
+          condition:
+            lambda: 'return id(saber_authorized);'
+          then:
+            - ble_client.ble_write:
+                id: saber_ble
+                service_uuid: "00003ab0-0000-1000-8000-00805f9b34fb"
+                characteristic_uuid: "00003ab1-0000-1000-8000-00805f9b34fb"
+                value: !lambda |-
+                  const char cmd[] = "[2,{\"Drag\":true}]";
+                  ESP_LOGI("xenopixel", "Sending drag on: %s", cmd);
+                  return std::vector<uint8_t>(cmd, cmd + sizeof(cmd) - 1);
+    turn_off_action:
+      - if:
+          condition:
+            lambda: 'return id(saber_authorized);'
+          then:
+            - ble_client.ble_write:
+                id: saber_ble
+                service_uuid: "00003ab0-0000-1000-8000-00805f9b34fb"
+                characteristic_uuid: "00003ab1-0000-1000-8000-00805f9b34fb"
+                value: !lambda |-
+                  const char cmd[] = "[2,{\"Drag\":false}]";
+                  ESP_LOGI("xenopixel", "Sending drag off: %s", cmd);
+                  return std::vector<uint8_t>(cmd, cmd + sizeof(cmd) - 1);

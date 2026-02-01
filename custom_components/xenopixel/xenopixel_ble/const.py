@@ -57,6 +57,36 @@ LIGHT_EFFECT_MIN: Final = 1
 LIGHT_EFFECT_MAX: Final = 9
 PARAM_VOLUME: Final = "Volume"
 
+# Combat effects (confirmed via BLE capture 2026-01-31)
+# One-shot effects (trigger once, no notification feedback)
+PARAM_CLASH: Final = "Clash"
+PARAM_BLASTER: Final = "Blaster"
+PARAM_FORCE: Final = "Force"
+
+# Toggled effects (stay active until explicitly turned off, send notifications)
+PARAM_LOCKUP: Final = "Lockup"
+PARAM_DRAG: Final = "Drag"
+
+# Combat effect status fields (from full status dump)
+PARAM_CURRENT_LOCKUP: Final = "CurrentLockup"
+PARAM_TOTAL_LOCKUP: Final = "TotalLockup"
+PARAM_CURRENT_DRAG: Final = "CurrentDrag"
+PARAM_TOTAL_DRAG: Final = "TotalDrag"
+PARAM_CURRENT_BLASTER: Final = "CurrentBlaster"
+PARAM_TOTAL_BLASTER: Final = "TotalBlaster"
+PARAM_CURRENT_CLASH: Final = "CurrentClash"
+PARAM_TOTAL_CLASH: Final = "TotalClash"
+PARAM_CURRENT_FORCE: Final = "CurrentForce"
+PARAM_TOTAL_FORCE: Final = "TotalForce"
+
+# Additional status fields
+PARAM_TOTAL_LIGHT_EFFECTS: Final = "TotalLightEffect"
+PARAM_CURRENT_POST_OFF: Final = "CurrentPostOff"
+PARAM_TOTAL_POST_OFF: Final = "TotalPostOff"
+PARAM_CURRENT_MODE: Final = "CurrentMode"
+PARAM_TOTAL_MODE: Final = "TotalMode"
+PARAM_PREON_TIME: Final = "PreonTime"
+
 # Timeouts
 COMMAND_TIMEOUT: Final = 5.0  # seconds
 NOTIFICATION_TIMEOUT: Final = 2.0  # seconds
