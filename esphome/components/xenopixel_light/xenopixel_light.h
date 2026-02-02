@@ -6,8 +6,8 @@
 #include "esphome/components/light/light_output.h"
 
 #ifndef UNIT_TEST
-#include <WiFiUdp.h>
-#include "esphome/components/wifi/wifi_component.h"
+#include <WiFiUdp.h>                                  // cppcheck-suppress missingInclude
+#include "esphome/components/wifi/wifi_component.h"   // cppcheck-suppress missingInclude
 #endif
 
 // Custom light output for Xenopixel sabers.
