@@ -1,6 +1,6 @@
 [project]
 name = "ha-xenopixel"
-version = "0.1.0"
+version = "0.8.0"
 description = "ESPHome proxy and BLE protocol library for Xenopixel V3 lightsabers"
 readme = "README.md"
 license = {text = "MIT"}
@@ -10,7 +10,7 @@ authors = [
 ]
 keywords = ["esphome", "bluetooth", "ble", "lightsaber", "xenopixel"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",

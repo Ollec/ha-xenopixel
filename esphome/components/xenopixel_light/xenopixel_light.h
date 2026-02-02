@@ -101,6 +101,10 @@ class XenopixelLight : public Component, public light::LightOutput {
 
   void reset_handle() { char_handle_ = 0; }
 
+  // Update cached power state from notification handler to prevent
+  // write_state() from echoing the same command back to the saber.
+  void update_cached_power(bool on) { last_on_ = on; }
+
  protected:
 #ifndef UNIT_TEST
   // Start the shared UDP listener once WiFi is connected.

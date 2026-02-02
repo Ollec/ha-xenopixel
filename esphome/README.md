@@ -62,14 +62,14 @@ Find your saber's MAC address using nRF Connect on your phone, or from the earli
 
 **First time (via USB):**
 ```bash
-esphome run xenopixel_simple.yaml
+esphome run xenopixel_1saber.yaml
 ```
 
 Select your serial port when prompted.
 
 **Subsequent updates (via WiFi OTA):**
 ```bash
-esphome run xenopixel_simple.yaml
+esphome run xenopixel_1saber.yaml
 ```
 
 ESPHome will automatically detect and use OTA if available.
@@ -98,62 +98,9 @@ State is synced from BLE notifications, not optimistic — the blade switch, vol
 
 See [PROTOCOL.md](../PROTOCOL.md) for the full protocol specification.
 
-## Home Assistant Entities
-
-After adding the ESPHome device, you'll have these entities:
-
-| Entity | Type | Description |
-|--------|------|-------------|
-| `switch.xenopixel_saber_blade` | Switch | Turn blade on/off (notification-driven) |
-| `number.xenopixel_saber_red` | Number | Red color (0-255) |
-| `number.xenopixel_saber_green` | Number | Green color (0-255) |
-| `number.xenopixel_saber_blue` | Number | Blue color (0-255) |
-| `number.xenopixel_saber_brightness` | Number | Brightness (0-100) |
-| `number.xenopixel_saber_volume` | Number | Volume (0-100) |
-| `number.xenopixel_saber_sound_font` | Number | Sound font selection (1-34) |
-| `number.xenopixel_saber_light_effect` | Number | Light effect selection |
-| `sensor.xenopixel_saber_battery` | Sensor | Battery level (%) |
-| `binary_sensor.xenopixel_saber_connected` | Binary Sensor | BLE connection status |
-| `binary_sensor.xenopixel_saber_authorized` | Binary Sensor | Saber authorization status |
-| `text_sensor.xenopixel_saber_hardware_version` | Text Sensor | Hardware version string |
-| `text_sensor.xenopixel_saber_software_version` | Text Sensor | Software version string |
-| `button.xenopixel_saber_*_preset` | Button | Color presets (red, green, blue, white) |
-| `button.xenopixel_saber_reconnect_ble` | Button | Reconnect BLE |
-| `button.xenopixel_saber_clash` | Button | Trigger clash effect (one-shot) |
-| `button.xenopixel_saber_blaster` | Button | Trigger blaster effect (one-shot) |
-| `button.xenopixel_saber_force` | Button | Trigger force effect (one-shot) |
-| `switch.xenopixel_saber_lockup` | Switch | Toggle lockup effect on/off |
-| `switch.xenopixel_saber_drag` | Switch | Toggle drag effect on/off |
 
 ## Example Automations
 
-### Turn on saber at sunset with red color
-```yaml
-automation:
-  - alias: "Saber on at sunset"
-    trigger:
-      - platform: sun
-        event: sunset
-    action:
-      - service: number.set_value
-        target:
-          entity_id: number.xenopixel_saber_red
-        data:
-          value: 255
-      - service: number.set_value
-        target:
-          entity_id: number.xenopixel_saber_green
-        data:
-          value: 0
-      - service: number.set_value
-        target:
-          entity_id: number.xenopixel_saber_blue
-        data:
-          value: 0
-      - service: switch.turn_on
-        target:
-          entity_id: switch.xenopixel_saber_blade
-```
 
 ### Flash saber when doorbell rings
 ```yaml
@@ -167,11 +114,11 @@ automation:
       - repeat:
           count: 3
           sequence:
-            - service: switch.turn_on
+            - service: light.turn_on
               target:
                 entity_id: switch.xenopixel_saber_blade
             - delay: 0.5
-            - service: switch.turn_off
+            - service: light.turn_off
               target:
                 entity_id: switch.xenopixel_saber_blade
             - delay: 0.5

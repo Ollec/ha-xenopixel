@@ -30,6 +30,9 @@ globals:
   - id: ${saber_id}_syncing
     type: bool
     initial_value: 'false'
+  - id: ${saber_id}_last_config_cmd_ms
+    type: uint32_t
+    initial_value: '0'
 
 # BLE Client connection
 ble_client:
@@ -205,10 +208,22 @@ text_sensor:
             auto power_on_pos = params.find("\"PowerOn\":");
             if (power_on_pos != std::string::npos) {
               bool blade_on = params.find("true", power_on_pos) < params.find(",", power_on_pos + 10);
-              auto call = id(${saber_id}_light).make_call();
-              call.set_state(blade_on);
-              call.perform();
-              ESP_LOGI("xenopixel", "${saber_name} State sync: blade %s", blade_on ? "ON" : "OFF");
+              // Ignore spurious PowerOn:false during font/effect changes.
+              // The saber briefly reports off while switching configs.
+              if (!blade_on && id(${saber_id}_last_config_cmd_ms) > 0 &&
+                  (millis() - id(${saber_id}_last_config_cmd_ms)) < 2000) {
+                ESP_LOGI("xenopixel", "${saber_name} Ignoring transient PowerOn:false after config change");
+              } else {
+                // Update cached power BEFORE performing the light call so that
+                // when write_state() fires asynchronously, send_power_if_changed_()
+                // sees last_on_ already matches and won't echo the command back.
+                auto *out = (xenopixel_light::XenopixelLight *)id(${saber_id}_light).get_output();
+                out->update_cached_power(blade_on);
+                auto call = id(${saber_id}_light).make_call();
+                call.set_state(blade_on);
+                call.perform();
+                ESP_LOGI("xenopixel", "${saber_name} State sync: blade %s", blade_on ? "ON" : "OFF");
+              }
             }
 
             // Parse Power (battery level)
@@ -259,6 +274,7 @@ text_sensor:
               call.set_value(val);
               call.perform();
               ESP_LOGI("xenopixel", "${saber_name} State sync: sound font %d", val);
+              id(${saber_id}_last_config_cmd_ms) = 0;
             }
 
             // Parse CurrentLightEffect
@@ -269,6 +285,7 @@ text_sensor:
               call.set_value(val);
               call.perform();
               ESP_LOGI("xenopixel", "${saber_name} State sync: light effect %d", val);
+              id(${saber_id}_last_config_cmd_ms) = 0;
             }
 
             // Parse HardwareVersion
@@ -373,6 +390,7 @@ number:
           condition:
             lambda: 'return id(${saber_id}_authorized) && !id(${saber_id}_syncing);'
           then:
+            - lambda: 'id(${saber_id}_last_config_cmd_ms) = millis();'
             - ble_client.ble_write:
                 id: ${saber_id}_ble
                 service_uuid: "00003ab0-0000-1000-8000-00805f9b34fb"
@@ -417,6 +435,7 @@ number:
           condition:
             lambda: 'return id(${saber_id}_authorized) && !id(${saber_id}_syncing);'
           then:
+            - lambda: 'id(${saber_id}_last_config_cmd_ms) = millis();'
             - ble_client.ble_write:
                 id: ${saber_id}_ble
                 service_uuid: "00003ab0-0000-1000-8000-00805f9b34fb"
