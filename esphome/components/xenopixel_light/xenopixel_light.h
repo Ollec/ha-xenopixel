@@ -6,8 +6,8 @@
 #include "esphome/components/light/light_output.h"
 
 #ifndef UNIT_TEST
-#include <WiFiUdp.h>                                  // cppcheck-suppress missingInclude
 #include "esphome/components/wifi/wifi_component.h"   // cppcheck-suppress missingInclude
+#include <lwip/sockets.h>                             // cppcheck-suppress missingInclude
 #endif
 
 // Custom light output for Xenopixel sabers.
@@ -34,13 +34,12 @@ class XenopixelLight : public Component, public light::LightOutput {
 
   void loop() override {
 #ifndef UNIT_TEST
-    static WiFiUDP udp;
-    static bool udp_started = false;
+    static int udp_fd = -1;
     static std::vector<uint8_t> latest_packet;
     static uint32_t packet_gen = 0;
 
-    if (!ensure_udp_started_(udp, udp_started)) return;
-    drain_udp_packets_(udp, latest_packet, packet_gen);
+    if (!ensure_udp_started_(udp_fd)) return;
+    drain_udp_packets_(udp_fd, latest_packet, packet_gen);
 
     if (wled_active_ && packet_gen != last_seen_gen_ &&
         latest_packet.size() >= 6) {
@@ -108,28 +107,52 @@ class XenopixelLight : public Component, public light::LightOutput {
  protected:
 #ifndef UNIT_TEST
   // Start the shared UDP listener once WiFi is connected.
-  static bool ensure_udp_started_(WiFiUDP &udp, bool &started) {
-    if (started) return true;
+  // Uses raw LWIP sockets with SO_BROADCAST for ESP32/ESP32-S3 compatibility.
+  static bool ensure_udp_started_(int &fd) {
+    if (fd >= 0) return true;
     if (wifi::global_wifi_component == nullptr ||
         !wifi::global_wifi_component->is_connected())
       return false;
-    udp.begin(21324);
-    started = true;
+
+    fd = lwip_socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (fd < 0) {
+      ESP_LOGE("xenopixel", "Failed to create UDP socket");
+      return false;
+    }
+
+    int broadcast = 1;
+    lwip_setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &broadcast,
+                    sizeof(broadcast));
+
+    // Non-blocking so drain loop doesn't stall the main loop
+    int flags = lwip_fcntl(fd, F_GETFL, 0);
+    lwip_fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+
+    struct sockaddr_in addr = {};
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(21324);
+    addr.sin_addr.s_addr = INADDR_ANY;
+    if (lwip_bind(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+      ESP_LOGE("xenopixel", "Failed to bind UDP port 21324");
+      lwip_close(fd);
+      fd = -1;
+      return false;
+    }
+
     ESP_LOGI("xenopixel", "WLED UDP listener started on port 21324");
     return true;
   }
 
   // Drain all queued UDP packets, keeping only the latest valid one.
-  static void drain_udp_packets_(WiFiUDP &udp,
+  static void drain_udp_packets_(int fd,
                                  std::vector<uint8_t> &latest_packet,
                                  uint32_t &packet_gen) {
     uint8_t buf[256];
     int latest_len = 0;
-    int pkt_size;
-    while ((pkt_size = udp.parsePacket()) > 0) {
-      if (pkt_size >= 6 && pkt_size <= static_cast<int>(sizeof(buf)))
-        latest_len = udp.read(buf, sizeof(buf));
-      udp.clear();
+    int n;
+    while ((n = lwip_recv(fd, buf, sizeof(buf), 0)) > 0) {
+      if (n >= 6)
+        latest_len = n;
     }
     if (latest_len > 0) {
       latest_packet.assign(buf, buf + latest_len);

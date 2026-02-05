@@ -10,6 +10,7 @@ Linux BlueZ has compatibility issues with the Xenopixel saber's BLE security req
 
 - **ESP32 board** - Any variant with BLE support:
   - ESP32-DevKitC (~$10)
+  - ESP32-S3-DevKitC-1 (~$10)
   - ESP32-WROOM (~$5)
   - ESP32-C3 (~$5)
   - NodeMCU-32S (~$8)
@@ -62,14 +63,18 @@ Find your saber's MAC address using nRF Connect on your phone, or from the earli
 
 **First time (via USB):**
 ```bash
+# ESP32 board
 esphome run xenopixel_1saber.yaml
+
+# ESP32-S3 board
+esphome run xenopixel_1saber_s3.yaml
 ```
 
-Select your serial port when prompted.
+Select your serial port when prompted. Use the `_s3.yaml` variant if your board is an ESP32-S3 (e.g., DevKitC-1).
 
 **Subsequent updates (via WiFi OTA):**
 ```bash
-esphome run xenopixel_1saber.yaml
+esphome run xenopixel_1saber.yaml    # or xenopixel_1saber_s3.yaml
 ```
 
 ESPHome will automatically detect and use OTA if available.
