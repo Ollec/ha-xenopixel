@@ -22,7 +22,7 @@ Control your Xenopixel V3 lightsabers via an ESP32 BLE-to-WiFi proxy, with nativ
 
 ## Requirements
 
-- **ESP32 board** (any variant with BLE support) — acts as BLE-to-WiFi proxy
+- **ESP32 board** (any variant with BLE support, including ESP32-S3) — acts as BLE-to-WiFi proxy
 - [ESPHome](https://esphome.io/) installed (`pip install esphome`)
 - Home Assistant with ESPHome integration
 - Xenopixel V3 lightsaber with Bluetooth enabled
@@ -37,14 +37,20 @@ Linux BlueZ blocks CCCD descriptor writes required by the Xenopixel BLE protocol
 2. Install ESPHome: `pip install esphome`
 3. Copy `esphome/secrets.yaml.example` to `esphome/secrets.yaml`
 4. Fill in your WiFi credentials, API key, and saber MAC address(es)
-5. Compile and flash the file matching your saber count:
+5. Compile and flash the file matching your saber count and board:
 
 ```bash
-# Single saber
+# Single saber (ESP32)
 cd esphome && esphome run xenopixel_1saber.yaml
 
-# Two sabers
+# Two sabers (ESP32)
 cd esphome && esphome run xenopixel_2sabers.yaml
+
+# Single saber (ESP32-S3)
+cd esphome && esphome run xenopixel_1saber_s3.yaml
+
+# Two sabers (ESP32-S3)
+cd esphome && esphome run xenopixel_2sabers_s3.yaml
 ```
 
 6. The ESP32 device will appear automatically in Home Assistant via ESPHome

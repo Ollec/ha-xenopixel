@@ -1,12 +1,16 @@
-# Xenopixel Lightsaber BLE Proxy — Dual Sabers
+# Xenopixel Lightsaber BLE Proxy — Dual Sabers (ESP32-S3)
 # Configure both saber MACs and names in secrets.yaml, then:
-#   esphome run xenopixel_2sabers.yaml
+#   esphome run xenopixel_2sabers_s3.yaml
 
 substitutions:
   device_name: xenopixel-2sabers
   friendly_name: "Xenopixel"
-  board: esp32dev
-  variant: esp32
+  board: esp32-s3-devkitc-1
+  variant: esp32s3
+
+# Route logs to UART0 (CP2102N bridge) instead of default USB_SERIAL_JTAG
+logger:
+  hardware_uart: UART0
 
 packages:
   base: !include packages/base.yaml
